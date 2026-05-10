@@ -15,6 +15,9 @@
 		<Product>MDL启动器</Product>
 		<Copyright>Copyright © 2026</Copyright>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+	  <Optimize>True</Optimize>
+	</PropertyGroup>
 	<ItemGroup>
 	  <None Remove="Assets\itch_logo.png" />
 	  <None Remove="Assets\steam_logo.png" />

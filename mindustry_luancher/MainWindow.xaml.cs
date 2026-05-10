@@ -1,12 +1,16 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -21,12 +25,15 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
-using Microsoft.Win32;
+using System.Windows.Threading;
 
 namespace MindustryLauncherGUI
 {
     public partial class MainWindow : Window
     {
+        // ==========================================
+        // 1. 全局配置与基础变量
+        // ==========================================
         private static readonly string ConfigFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "launcher_config.json");
         private AppConfig _config = new AppConfig();
         private GameInstanceInfo? _currentInstance;
@@ -51,6 +58,21 @@ namespace MindustryLauncherGUI
         public static int CurrentProxyIndex = 1;
         private ICollectionView? _settingsView;
 
+        // ==========================================
+        // 2. 联机大厅：底层变量 (雷达 + 进程)
+        // ==========================================
+        private Process? _easyTierProcess = null;
+        public class RoomPlayerInfo { public string IP { get; set; } = ""; public string Name { get; set; } = ""; public DateTime LastSeen { get; set; } }
+        private ObservableCollection<RoomPlayerInfo> _onlinePlayers = new ObservableCollection<RoomPlayerInfo>();
+        private UdpClient? _discoveryListener;
+        private CancellationTokenSource? _discoveryCts;
+        private DispatcherTimer? _discoveryTimer;
+        private string _myBroadcastIp = "";
+        private string _myNickname = "";
+
+        // ==========================================
+        // 3. 窗口初始化
+        // ==========================================
         public MainWindow()
         {
             var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (m, c, ch, e) => true };
@@ -63,6 +85,7 @@ namespace MindustryLauncherGUI
         {
             LoadConfig();
             GlobalJavaComboBox.Text = _config.GlobalJavaPath;
+            PlayerNameBox.Text = _config.PlayerNickname;
             int maxRam = (HardwareInfo.GetTotalPhysicalMemoryMB() / 512) * 512;
             GlobalRamSlider.Maximum = maxRam;
             VSettingsRamSlider.Maximum = maxRam;
@@ -78,78 +101,217 @@ namespace MindustryLauncherGUI
             }
 
             UpdateMainUI();
-            RbOfficial.IsChecked = true;
-            RbSchemMinRi2.IsChecked = true;
-            MainTabControl.SelectedIndex = -1;
-            SwitchTab(0);
+            RbOfficial.IsChecked = true; RbSchemMinRi2.IsChecked = true;
+            MainTabControl.SelectedIndex = -1; SwitchTab(0);
 
-            Task.Run(() =>
-            {
-                var javas = JavaScanner.Scan();
-                Dispatcher.InvokeAsync(() =>
-                {
-                    GlobalJavaComboBox.ItemsSource = javas;
-                    VSettingsJavaComboBox.ItemsSource = javas;
-                });
-            });
-
+            Task.Run(() => { var javas = JavaScanner.Scan(); Dispatcher.InvokeAsync(() => { GlobalJavaComboBox.ItemsSource = javas; VSettingsJavaComboBox.ItemsSource = javas; }); });
             LoadGameIconAsync();
         }
 
-        private int CalculateSmartRam()
-        {
-            int tg = (HardwareInfo.GetTotalPhysicalMemoryMB() - 2048) / 2;
-            return (Math.Clamp(tg, 1024, 8192) / 512) * 512;
-        }
+        // ==========================================
+        // 4. 内存滑块控制
+        // ==========================================
+        private int CalculateSmartRam() { return (Math.Clamp((HardwareInfo.GetTotalPhysicalMemoryMB() - 2048) / 2, 1024, 8192) / 512) * 512; }
 
         private void GlobalAutoRamCheck_Changed(object sender, RoutedEventArgs e)
         {
             if (GlobalRamSlider == null || GlobalRamText == null) return;
             bool isAuto = GlobalAutoRamCheck.IsChecked ?? false;
-            GlobalRamSlider.IsEnabled = !isAuto;
-            _config.GlobalUseAutoRam = isAuto;
-            if (isAuto)
-            {
-                int autoRam = CalculateSmartRam();
-                GlobalRamSlider.Value = autoRam;
-                GlobalRamText.Text = $"{autoRam} MB (自动)";
-            }
-            else
-            {
-                GlobalRamText.Text = $"{(int)GlobalRamSlider.Value} MB";
-            }
+            GlobalRamSlider.IsEnabled = !isAuto; _config.GlobalUseAutoRam = isAuto;
+            if (isAuto) { int autoRam = CalculateSmartRam(); GlobalRamSlider.Value = autoRam; GlobalRamText.Text = $"{autoRam} MB (自动)"; }
+            else { GlobalRamText.Text = $"{(int)GlobalRamSlider.Value} MB"; }
         }
 
-        private void GlobalRamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            if (GlobalRamText != null && GlobalAutoRamCheck.IsChecked == false)
-                GlobalRamText.Text = $"{(int)e.NewValue} MB";
-        }
+        private void GlobalRamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) { if (GlobalRamText != null && GlobalAutoRamCheck.IsChecked == false) GlobalRamText.Text = $"{(int)e.NewValue} MB"; }
 
         private void VersionAutoRamCheck_Changed(object sender, RoutedEventArgs e)
         {
             if (VSettingsRamSlider == null || VSettingsRamText == null) return;
             bool isAuto = VersionAutoRamCheck.IsChecked ?? false;
-            VSettingsRamSlider.IsEnabled = !isAuto;
-            _currentVersionConfig.UseAutoRam = isAuto;
-            if (isAuto)
-            {
-                int targetRam = _config.GlobalUseAutoRam ? CalculateSmartRam() : _config.GlobalRamMB;
-                VSettingsRamSlider.Value = targetRam;
-                VSettingsRamText.Text = $"{targetRam} MB (跟随全局)";
-            }
-            else
-            {
-                VSettingsRamText.Text = $"{(int)VSettingsRamSlider.Value} MB";
-            }
+            VSettingsRamSlider.IsEnabled = !isAuto; _currentVersionConfig.UseAutoRam = isAuto;
+            if (isAuto) { int targetRam = _config.GlobalUseAutoRam ? CalculateSmartRam() : _config.GlobalRamMB; VSettingsRamSlider.Value = targetRam; VSettingsRamText.Text = $"{targetRam} MB (跟随全局)"; }
+            else { VSettingsRamText.Text = $"{(int)VSettingsRamSlider.Value} MB"; }
         }
 
-        private void VSettingsRamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        private void VSettingsRamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) { if (VSettingsRamText != null && VersionAutoRamCheck.IsChecked == false) VSettingsRamText.Text = $"{(int)e.NewValue} MB"; }
+
+        // ==========================================
+        // 5. 联机大厅：UDP 广播探测雷达逻辑
+        // ==========================================
+        private void StartUdpDiscovery(string broadcastIp, string nickname)
         {
-            if (VSettingsRamText != null && VersionAutoRamCheck.IsChecked == false)
-                VSettingsRamText.Text = $"{(int)e.NewValue} MB";
+            _myBroadcastIp = broadcastIp; _myNickname = nickname;
+            _onlinePlayers.Clear(); RoomPlayersListBox.ItemsSource = _onlinePlayers;
+            _discoveryCts = new CancellationTokenSource();
+            Task.Run(() => DiscoveryListenLoop(_discoveryCts.Token));
+
+            _discoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _discoveryTimer.Tick += (s, e) => {
+                try { using var sender = new UdpClient(); sender.EnableBroadcast = true; byte[] data = Encoding.UTF8.GetBytes($"MDL_WHO|{_myNickname}"); sender.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(_myBroadcastIp), 6568)); } catch { }
+                for (int i = _onlinePlayers.Count - 1; i >= 0; i--) { if ((DateTime.Now - _onlinePlayers[i].LastSeen).TotalSeconds > 6) _onlinePlayers.RemoveAt(i); }
+            };
+            _discoveryTimer.Start();
         }
 
+        private void DiscoveryListenLoop(CancellationToken token)
+        {
+            try
+            {
+                _discoveryListener = new UdpClient();
+                _discoveryListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                _discoveryListener.Client.Bind(new IPEndPoint(IPAddress.Any, 6568));
+                while (!token.IsCancellationRequested)
+                {
+                    IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+                    byte[] bytes = _discoveryListener.Receive(ref remoteEP);
+                    string msg = Encoding.UTF8.GetString(bytes);
+                    string ip = remoteEP.Address.ToString();
+
+                    Dispatcher.Invoke(() => {
+                        if (msg.StartsWith("MDL_WHO|"))
+                        {
+                            string name = msg.Substring(8);
+                            var existing = _onlinePlayers.FirstOrDefault(p => p.IP == ip);
+                            if (existing != null) { existing.LastSeen = DateTime.Now; int idx = _onlinePlayers.IndexOf(existing); _onlinePlayers[idx] = new RoomPlayerInfo { IP = ip, Name = name, LastSeen = DateTime.Now }; }
+                            else { _onlinePlayers.Add(new RoomPlayerInfo { IP = ip, Name = name, LastSeen = DateTime.Now }); }
+                        }
+                        // 👇 新增修改：接收到退出包，立刻从列表中移除该玩家 👇
+                        else if (msg.StartsWith("MDL_BYE|"))
+                        {
+                            var existing = _onlinePlayers.FirstOrDefault(p => p.IP == ip);
+                            if (existing != null) _onlinePlayers.Remove(existing);
+                        }
+                    });
+                }
+            }
+            catch { }
+        }
+
+        private void StopUdpDiscovery()
+        {
+            // 👇 新增修改：主动发送退出广播 (MDL_BYE) 告诉其他人我退出了 👇
+            try
+            {
+                if (!string.IsNullOrEmpty(_myBroadcastIp) && !string.IsNullOrEmpty(_myNickname))
+                {
+                    using var sender = new UdpClient();
+                    sender.EnableBroadcast = true;
+                    byte[] data = Encoding.UTF8.GetBytes($"MDL_BYE|{_myNickname}");
+                    sender.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(_myBroadcastIp), 6568));
+                }
+            }
+            catch { }
+            // 👆 新增修改结束 👆
+
+            _discoveryCts?.Cancel();
+            _discoveryTimer?.Stop();
+            _discoveryListener?.Close();
+            Dispatcher.Invoke(() => _onlinePlayers.Clear());
+        }
+
+        // ==========================================
+        // 6. 联机大厅：创建、加入与进程管理
+        // ==========================================
+        private void CreateRoomBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_easyTierProcess != null && !_easyTierProcess.HasExited) { KillEasyTierProcess(); return; }
+            string exe = GetEasyTierExePath(); if (string.IsNullOrEmpty(exe)) return;
+            string myName = PlayerNameBox.Text.Trim(); if (string.IsNullOrEmpty(myName)) { MessageBox.Show("起个名字吧！"); return; }
+            string roomCode = new Random().Next(100000, 999999).ToString(); EasyTierRoomBox.Text = roomCode;
+            string sub1 = roomCode.Substring(0, 2); string sub2 = roomCode.Substring(2, 2); string myIp = $"10.{sub1}.{sub2}.1";
+            string args = $"-e \"{EasyTierServerBox.Text}\" --network-name \"mdl_room_{roomCode}\" --network-secret \"mdl_pwd_{roomCode}\" --ipv4 {myIp}/24";
+            string fw = "netsh advfirewall firewall add rule name=\"MDL_Net\" dir=in action=allow protocol=ANY localport=6567,6568 >nul 2>&1";
+            StartEasyTierProcess($"/k \"{fw} & \"{exe}\" {args}\"", roomCode, true, myIp, myIp, $"10.{sub1}.{sub2}.255", myName);
+        }
+
+        private void JoinRoomBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_easyTierProcess != null && !_easyTierProcess.HasExited) { KillEasyTierProcess(); return; }
+            string exe = GetEasyTierExePath(); string roomCode = EasyTierRoomBox.Text.Trim();
+            string myName = PlayerNameBox.Text.Trim(); if (string.IsNullOrEmpty(roomCode) || string.IsNullOrEmpty(myName)) { MessageBox.Show("房号和名字都得写！"); return; }
+            string sub1 = roomCode.Substring(0, 2); string sub2 = roomCode.Substring(2, 2); string myIp = $"10.{sub1}.{sub2}.{new Random().Next(2, 254)}";
+            string args = $"-e \"{EasyTierServerBox.Text}\" --network-name \"mdl_room_{roomCode}\" --network-secret \"mdl_pwd_{roomCode}\" --ipv4 {myIp}/24";
+            string fw = "netsh advfirewall firewall add rule name=\"MDL_Net\" dir=in action=allow protocol=ANY localport=6567,6568 >nul 2>&1";
+            StartEasyTierProcess($"/k \"{fw} & \"{exe}\" {args}\"", roomCode, false, myIp, $"10.{sub1}.{sub2}.1", $"10.{sub1}.{sub2}.255", myName);
+        }
+
+        // 上下文：在 JoinRoomBtn_Click 方法的下方
+        private void StartEasyTierProcess(string cmdArgs, string roomCode, bool isHost, string myIp, string hostIp, string brIp, string myName)
+        {
+            try
+            {
+                _easyTierProcess = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = cmdArgs,
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden // 隐藏黑框
+                });
+                if (_easyTierProcess != null)
+                {
+                    MyVirtualIpBox.Text = myIp; StartUdpDiscovery(brIp, myName);
+
+                    // 👇 修改点：运行时将对应按钮变红，并禁用另一个按钮 👇
+                    if (isHost)
+                    {
+                        CreateRoomBtn.Content = "⏹ 解散大厅";
+                        CreateRoomBtn.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E81123")); // 变红
+                        JoinRoomBtn.IsEnabled = false;
+                    }
+                    else
+                    {
+                        JoinRoomBtn.Content = "⏹ 退出大厅";
+                        JoinRoomBtn.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E81123")); // 变红
+                        CreateRoomBtn.IsEnabled = false;
+                    }
+
+                    _easyTierProcess.EnableRaisingEvents = true;
+                    _easyTierProcess.Exited += (s, ev) => Dispatcher.Invoke(() => {
+                        _easyTierProcess = null; StopUdpDiscovery(); MyVirtualIpBox.Text = "尚未连接";
+
+                        // 👇 修改点：断开时恢复原状，ClearValue 会自动变回你 XAML 里设置的颜色 👇
+                        CreateRoomBtn.Content = "创 建 大 厅";
+                        CreateRoomBtn.ClearValue(Button.BackgroundProperty);
+                        JoinRoomBtn.Content = "加 入";
+                        JoinRoomBtn.ClearValue(Button.BackgroundProperty);
+                        CreateRoomBtn.IsEnabled = true; JoinRoomBtn.IsEnabled = true;
+                    });
+
+                    if (isHost) MessageBox.Show($"大厅已在后台开启！房号：{roomCode}");
+                    else MessageBox.Show($"已连接！房主IP：{hostIp}");
+                }
+            }
+            catch { MessageBox.Show("请允许管理员权限以配置网络！"); }
+        }
+        // 上下文：在 KillEasyTierProcess 方法的上方
+
+        // --- 修改部分 ---
+        private void KillEasyTierProcess()
+        {
+            // 👇 加入安全检查：如果进程不存在或已退出，则不执行，防止报错
+            if (_easyTierProcess == null || _easyTierProcess.HasExited) return;
+
+            try
+            {
+                // 使用 /T 杀掉进程树（确保 cmd.exe 及其拉起的 core 一起死），/F 强制杀掉
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "taskkill",
+                    Arguments = $"/PID {_easyTierProcess.Id} /T /F",
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                })?.WaitForExit();
+            }
+            catch { }
+            finally { _easyTierProcess = null; } // 释放引用
+        }
+
+        // ==========================================
+        // 往下是你原有的图标加载、游戏启动等方法，保持不变
         private async void LoadGameIconAsync()
         {
             string cd = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache");
@@ -179,6 +341,11 @@ namespace MindustryLauncherGUI
 
         private void Window_Closed(object sender, EventArgs e)
         {
+            // 👇 核心修复：在关闭窗口时，先杀掉联机进程并停止探测雷达
+            KillEasyTierProcess();
+            StopUdpDiscovery();
+
+            // 原有的配置保存逻辑
             _config.GlobalJavaPath = GlobalJavaComboBox.Text;
             _config.GlobalRamMB = (int)GlobalRamSlider.Value;
             SaveConfig();
@@ -311,7 +478,7 @@ namespace MindustryLauncherGUI
         // ==========================================
 
         // 追踪后台 EasyTier 进程的变量
-        private Process? _easyTierProcess = null;
+       
 
         // 核心增强：智能寻找解压后的 exe (无视里面嵌套了多少层文件夹)
         private string GetEasyTierExePath()
@@ -383,115 +550,7 @@ namespace MindustryLauncherGUI
         // 核心：基于房号系统的 EasyTier 连接逻辑 (终极完美版)
         // 包含：动态IP分配、双向防火墙静默穿透、进程树强制断开
         // ==========================================
-        private void ToggleEasyTier_Click(object sender, RoutedEventArgs e)
-        {
-            // 1. 强制断开逻辑：如果已经在运行了，执行“斩草除根”操作
-            if (_easyTierProcess != null && !_easyTierProcess.HasExited)
-            {
-                try
-                {
-                    // 核心修复：由于黑框是管理员权限，且带有子进程，必须用系统的 taskkill 连根拔起！
-                    ProcessStartInfo killInfo = new ProcessStartInfo
-                    {
-                        FileName = "taskkill",
-                        Arguments = $"/PID {_easyTierProcess.Id} /T /F", // /T 杀掉整个进程树，/F 强制执行
-                        UseShellExecute = true,
-                        Verb = "runas", // 必须提权才能杀掉管理员级别的黑框
-                        CreateNoWindow = true,
-                        WindowStyle = ProcessWindowStyle.Hidden
-                    };
-
-                    // 启动杀手程序，并等待它把黑框杀完
-                    Process.Start(killInfo)?.WaitForExit();
-                }
-                catch (Win32Exception)
-                {
-                    // 如果用户在断开时的 UAC 弹窗点了“否”，就不做任何处理
-                    MessageBox.Show("取消断开：需要管理员权限才能强制关闭后台网络进程。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                catch { }
-
-                _easyTierProcess = null;
-                ToggleEasyTierBtn.Content = "🚀 提权并连接虚拟局域网";
-                ToggleEasyTierBtn.Background = new SolidColorBrush(Color.FromRgb(76, 175, 80));
-                return;
-            }
-
-            // 2. 获取客户端路径
-            string exe = GetEasyTierExePath();
-            if (string.IsNullOrEmpty(exe) || !System.IO.File.Exists(exe))
-            {
-                MessageBox.Show("未找到核心组件！请先点击上方按钮下载联机组件！", "缺少组件", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            string server = EasyTierServerBox.Text.Trim();
-            string roomCode = EasyTierRoomBox.Text.Trim();
-
-            if (string.IsNullOrEmpty(server) || string.IsNullOrEmpty(roomCode) || roomCode.Length < 4)
-            {
-                MessageBox.Show("服务器地址和房间号不能为空！\n(请点击“生成房间”或输入朋友给的至少4位数字房号)", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            // 3. 网络隔离机制：房号转换为密码
-            string networkName = $"mdl_room_{roomCode}";
-            string networkSecret = $"mdl_pwd_{roomCode}";
-
-            // 4. 强制 IPv4 防冲突分配 (避开现有VPN和虚拟机的干扰)
-            string sub1 = roomCode.Substring(0, 2);
-            string sub2 = roomCode.Substring(2, 2);
-            int lastIpNode = new Random().Next(1, 254);
-            string ipv4Subnet = $"10.{sub1}.{sub2}.{lastIpNode}/24";
-            string args = $"-e \"{server}\" --network-name \"{networkName}\" --network-secret \"{networkSecret}\" --ipv4 {ipv4Subnet}";
-
-            // ================= 5. 终极静默双向防火墙穿透 =================
-            // 入站规则 (dir=in)：允许别人连进你的游戏房间
-            string fwIn = "netsh advfirewall firewall add rule name=\"MDL_Mindustry_UDP_In\" dir=in action=allow protocol=UDP localport=6567 >nul 2>&1";
-            // 出站规则 (dir=out)：允许你的游戏数据发往别人的房间
-            string fwOut = "netsh advfirewall firewall add rule name=\"MDL_Mindustry_UDP_Out\" dir=out action=allow protocol=UDP localport=6567 >nul 2>&1";
-
-            // 6. 将防火墙 入站 + 出站 + 启动组件 三个命令用 & 符号暴力串联！
-            string cmdArgs = $"/k \"{fwIn} & {fwOut} & \"{exe}\" {args}\"";
-
-            try
-            {
-                var pInfo = new ProcessStartInfo
-                {
-                    FileName = "cmd.exe",
-                    Arguments = cmdArgs,
-                    UseShellExecute = true,  // 必须为true才能触发UAC提权
-                    Verb = "runas",          // 申请管理员权限 (防火墙和虚拟网卡都需要它)
-                    WindowStyle = ProcessWindowStyle.Normal // 保持黑框可见，方便查错和关闭
-                };
-
-                _easyTierProcess = Process.Start(pInfo);
-
-                if (_easyTierProcess != null)
-                {
-                    // 按钮状态变为断开
-                    ToggleEasyTierBtn.Content = $"⏹ 正在连接房间 {roomCode} (黑框关闭即断开)";
-                    ToggleEasyTierBtn.Background = new SolidColorBrush(Color.FromRgb(244, 67, 54));
-
-                    // 监听黑框关闭事件，自动恢复按钮状态
-                    _easyTierProcess.EnableRaisingEvents = true;
-                    _easyTierProcess.Exited += (s, ev) => Dispatcher.Invoke(() => {
-                        _easyTierProcess = null;
-                        ToggleEasyTierBtn.Content = "🚀 提权并连接虚拟局域网";
-                        ToggleEasyTierBtn.Background = new SolidColorBrush(Color.FromRgb(76, 175, 80));
-                    });
-                }
-            }
-            catch (Win32Exception)
-            {
-                MessageBox.Show("您取消了管理员授权！必须同意权限才能设置防火墙和建立虚拟网卡。", "提权失败", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"启动联机服务失败: {ex.Message}");
-            }
-        }
+        
         private void CloseOverlays_Click(object sender, RoutedEventArgs e)
         {
             if (VersionSettingsOverlay.Visibility == Visibility.Visible && _currentInstance != null) { SaveVersionConfig(_currentInstance.FullPath); AnimateFade(VersionSettingsOverlay, false); }
@@ -1675,11 +1734,21 @@ namespace MindustryLauncherGUI
             }
             catch { }
             return info;
+
         }
     }
 
     public class JavaInfo { public string Path { get; set; } = ""; public string Version { get; set; } = ""; public int VersionNumber { get; set; } }
-    public class AppConfig { public List<string> ManagedFolders { get; set; } = new List<string>(); public string GlobalJavaPath { get; set; } = ""; public string LastSelectedInstancePath { get; set; } = ""; public int ProxyNodeIndex { get; set; } = 1; public int GlobalRamMB { get; set; } = 4096; public bool GlobalUseAutoRam { get; set; } = true; }
+    public class AppConfig
+    {
+        public List<string> ManagedFolders { get; set; } = new List<string>();
+        public string GlobalJavaPath { get; set; } = "";
+        public string LastSelectedInstancePath { get; set; } = "";
+        public int ProxyNodeIndex { get; set; } = 1;
+        public int GlobalRamMB { get; set; } = 4096;
+        public bool GlobalUseAutoRam { get; set; } = true;
+        public string PlayerNickname { get; set; } = "Mindustry玩家";
+    }
     public class VersionConfig { public bool UseIsolation { get; set; } = true; public string CustomJavaPath { get; set; } = ""; public string CustomJvmArgs { get; set; } = ""; public int CustomRamMB { get; set; } = 4096; public bool UseAutoRam { get; set; } = true; }
     public class GameInstanceInfo { public string Name { get; set; } = ""; public string FullPath { get; set; } = ""; }
     public class ModInfo { public string FileName { get; set; } = ""; public string FullPath { get; set; } = ""; public string FileSize { get; set; } = ""; public string DisplayName { get; set; } = ""; public string Author { get; set; } = ""; public string Description { get; set; } = ""; public string Version { get; set; } = ""; public ImageSource? IconImage { get; set; } public string UI_Name => string.IsNullOrEmpty(DisplayName) ? FileName : DisplayName; public string UI_Author => string.IsNullOrEmpty(Author) ? "未知作者" : $"作者: {Author}"; }

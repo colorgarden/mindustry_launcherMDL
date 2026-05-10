@@ -675,49 +675,160 @@
                             </Grid.RowDefinitions>
                             <TextBlock Text="联机大厅 (EasyTier 虚拟局域网)" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
 
-                            <Border Grid.Row="1" Background="White" BorderBrush="#DDD" BorderThickness="1" CornerRadius="8" Padding="20" VerticalAlignment="Top">
-                                <StackPanel>
-                                    <Border Background="#F8F9FA" CornerRadius="5" Padding="15" Margin="0,0,0,15">
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="15"/>
+                                    <ColumnDefinition Width="280"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <Border Background="#E3F2FD" BorderBrush="#90CAF9" BorderThickness="1" CornerRadius="10" Padding="15,10" Margin="0,0,0,15">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="游戏昵称:" FontWeight="Bold" VerticalAlignment="Center" FontSize="14" Foreground="#333333"/>
+                                            <TextBox x:Name="PlayerNameBox" Grid.Column="1" Margin="10,0,20,0" Padding="5" VerticalContentAlignment="Center" FontSize="14" Text="Mindustry玩家" Background="Transparent" BorderThickness="0,0,0,1"/>
+
+                                            <TextBlock Grid.Column="2" Text="虚拟IP:" FontWeight="Bold" VerticalAlignment="Center" FontSize="14" Foreground="#333333"/>
+                                            <TextBox x:Name="MyVirtualIpBox" Grid.Column="3" Text="尚未连接" IsReadOnly="True" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" FontSize="15" Foreground="#1565C0" FontWeight="Bold" Margin="5,0,0,0"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Background="White" BorderBrush="#DDD" BorderThickness="1" CornerRadius="10" Padding="15" Margin="0,0,0,15">
                                         <StackPanel>
-                                            <TextBlock Text="组件状态：" FontWeight="Bold" Foreground="#555" Margin="0,0,0,5"/>
-                                            <TextBlock x:Name="EasyTierStatusText" Text="请先点击下方下载组件..." FontSize="14" FontWeight="Bold" Foreground="#2196F3"/>
-                                            <ProgressBar x:Name="EasyTierProgressBar" Height="10" Minimum="0" Maximum="100" Margin="0,10,0,0" Visibility="Collapsed"/>
-                                            <Button x:Name="BtnDownloadEasyTier" Content="⏬ 下载 / 修复联机组件" Margin="0,10,0,0" Padding="10,5" Background="#E3F2FD" Foreground="#1976D2" BorderThickness="0" Cursor="Hand" Click="BtnDownloadEasyTier_Click" HorizontalAlignment="Left" FocusVisualStyle="{x:Null}">
-                                                <Button.Resources>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="CornerRadius" Value="3"/>
+                                            <TextBlock Text="加入大厅 (房客)" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBox x:Name="EasyTierRoomBox" Grid.Column="0" Height="32" VerticalContentAlignment="Center" Margin="0,0,10,0" FontSize="14" Padding="8,0" Background="White" BorderBrush="#CCC">
+                                                    <TextBox.Style>
+                                                        <Style TargetType="TextBox">
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="TextBox">
+                                                                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="6">
+                                                                            <Grid>
+                                                                                <TextBlock x:Name="WaterMark" Text="在此处输入房间号" Foreground="#AAA" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False" Visibility="Collapsed"/>
+                                                                                <ScrollViewer x:Name="PART_ContentHost" Margin="0"/>
+                                                                            </Grid>
+                                                                        </Border>
+
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="Text" Value="">
+                                                                                <Setter TargetName="WaterMark" Property="Visibility" Value="Visible"/>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </TextBox.Style>
+                                                </TextBox>
+
+                                                <Button x:Name="JoinRoomBtn" Content="加 入" Grid.Column="1" Width="80" Height="32" Click="JoinRoomBtn_Click" Cursor="Hand" Foreground="White" FontWeight="Bold" BorderThickness="0">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Background" Value="#2196F3"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="6">
+                                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="bg" Property="Background" Value="#1976D2"/>
+                                                                            </Trigger>
+                                                                            <Trigger Property="IsPressed" Value="True">
+                                                                                <Setter TargetName="bg" Property="Background" Value="#1565C0"/>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Background="White" BorderBrush="#DDD" BorderThickness="1" CornerRadius="10" Padding="15" Margin="0,0,0,15">
+                                        <StackPanel>
+                                            <TextBlock Text="创建大厅 (房主)" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                                            <Button x:Name="CreateRoomBtn" Content="创 建 大 厅" Height="35" Click="CreateRoomBtn_Click" Cursor="Hand" Foreground="White" FontWeight="Bold" BorderThickness="0">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="#4CAF50"/>
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="Button">
+                                                                    <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="6">
+                                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter TargetName="bg" Property="Background" Value="#388E3C"/>
+                                                                        </Trigger>
+                                                                        <Trigger Property="IsPressed" Value="True">
+                                                                            <Setter TargetName="bg" Property="Background" Value="#2E7D32"/>
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
                                                     </Style>
-                                                </Button.Resources>
+                                                </Button.Style>
                                             </Button>
                                         </StackPanel>
                                     </Border>
 
-                                    <TextBlock Text="1. 公共服务器节点 (保持默认即可):" Margin="0,0,0,5" FontWeight="Bold"/>
-                                    <TextBox x:Name="EasyTierServerBox" Text="tcp://101.133.167.126:11010" Padding="8" Margin="0,0,0,15" Background="#F5F5F5" BorderBrush="#CCC" BorderThickness="1" Foreground="Gray"/>
-
-                                    <TextBlock Text="2. 联机房间号 (6位数字):" Margin="0,0,0,5" FontWeight="Bold"/>
-                                    <DockPanel Margin="0,0,0,20">
-                                        <Button x:Name="GenerateRoomBtn" Content="🎲 随机生成房间" DockPanel.Dock="Right" Margin="10,0,0,0" Padding="15,0" Background="#FFF9C4" Foreground="#F57F17" FontWeight="Bold" BorderThickness="0" Cursor="Hand" Click="GenerateRoom_Click" FocusVisualStyle="{x:Null}">
-                                            <Button.Resources>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="CornerRadius" Value="3"/>
-                                                </Style>
-                                            </Button.Resources>
-                                        </Button>
-                                        <TextBox x:Name="EasyTierRoomBox" Text="" Padding="8" Background="#FFF" BorderBrush="#2196F3" BorderThickness="2" FontSize="18" FontWeight="Bold" HorizontalContentAlignment="Center"/>
-                                    </DockPanel>
-
-                                    <Button x:Name="ToggleEasyTierBtn" Content="🚀 提权并连接虚拟局域网" FontSize="16" FontWeight="Bold" Padding="15" Background="#4CAF50" Foreground="White" BorderThickness="0" Cursor="Hand" Click="ToggleEasyTier_Click" FocusVisualStyle="{x:Null}">
-                                        <Button.Resources>
-                                            <Style TargetType="Border">
-                                                <Setter Property="CornerRadius" Value="5"/>
-                                            </Style>
-                                        </Button.Resources>
-                                    </Button>
-
-                                    <TextBlock Text="* 提示：建立虚拟网卡需要请求管理员权限（UAC）。连接成功后，Mindustry 的 TCP 和 UDP 将自动通过虚拟网卡接通，无需进行端口映射，在游戏局域网列表可见。" Foreground="Gray" TextWrapping="Wrap" Margin="0,15,0,0"/>
+                                    <Border Background="#F8F9FA" BorderBrush="#EEE" BorderThickness="1" CornerRadius="10" Padding="15">
+                                        <StackPanel>
+                                            <TextBlock x:Name="EasyTierStatusText" Text="EasyTier 组件已就绪" FontSize="13" Foreground="#666"/>
+                                            <ProgressBar x:Name="EasyTierProgressBar" Height="10" Minimum="0" Maximum="100" Margin="0,8,0,0" Visibility="Collapsed"/>
+                                            <Button x:Name="BtnDownloadEasyTier" Content="重新下载组件" Margin="0,8,0,0" Click="BtnDownloadEasyTier_Click" HorizontalAlignment="Left" Background="Transparent" Foreground="#2196F3" BorderThickness="0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBox x:Name="EasyTierServerBox" Text="tcp://101.133.167.126:11010" Visibility="Collapsed"/>
                                 </StackPanel>
-                            </Border>
+
+                                <Border Grid.Column="2" Background="White" BorderBrush="#EEE" BorderThickness="1" CornerRadius="10" Padding="15">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Text="👥 房间在线玩家" FontSize="16" FontWeight="Bold" Foreground="#333" Margin="0,0,0,5"/>
+                                        <TextBlock Grid.Row="1" Text="(连接后自动探测)" Foreground="Gray" FontSize="12" Margin="0,0,0,15"/>
+
+                                        <ListBox x:Name="RoomPlayersListBox" Grid.Row="2" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#F0F7FF" CornerRadius="8" Margin="0,0,0,8" Padding="12,10">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="👤" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="#1565C0" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding IP}" FontSize="12" Foreground="#666" Margin="0,2,0,0"/>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Grid>
+                                </Border>
+                            </Grid>
                         </Grid>
                     </TabItem>
                     <TabItem>
