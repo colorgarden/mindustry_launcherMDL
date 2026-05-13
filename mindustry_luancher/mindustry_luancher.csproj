@@ -7,8 +7,8 @@
 		<UseWPF>true</UseWPF>
 
 		<AssemblyName>MDL_Launcher</AssemblyName>
-		<Version>0.0.9-beta</Version>
-		<FileVersion>0.0.9-beta</FileVersion>
+		<Version>0.1.0-beta</Version>
+		<FileVersion>0.1.0-beta</FileVersion>
 
 		<ApplicationIcon>icon.ico</ApplicationIcon>
 		<Company>Color_Garden</Company>

@@ -744,11 +744,17 @@
                                                                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                                         </Border>
                                                                         <ControlTemplate.Triggers>
-                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                            <MultiTrigger>
+                                                                                <MultiTrigger.Conditions>
+                                                                                    <Condition Property="IsMouseOver" Value="True"/>
+                                                                                    <Condition Property="Tag" Value="{x:Null}"/>
+                                                                                </MultiTrigger.Conditions>
                                                                                 <Setter TargetName="bg" Property="Background" Value="#1976D2"/>
-                                                                            </Trigger>
-                                                                            <Trigger Property="IsPressed" Value="True">
-                                                                                <Setter TargetName="bg" Property="Background" Value="#1565C0"/>
+                                                                            </MultiTrigger>
+
+                                                                            <Trigger Property="IsEnabled" Value="False">
+                                                                                <Setter TargetName="bg" Property="Background" Value="#E0E0E0"/>
+                                                                                <Setter Property="TextElement.Foreground" Value="#AAA"/>
                                                                             </Trigger>
                                                                         </ControlTemplate.Triggers>
                                                                     </ControlTemplate>
@@ -775,11 +781,17 @@
                                                                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                                     </Border>
                                                                     <ControlTemplate.Triggers>
-                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                        <MultiTrigger>
+                                                                            <MultiTrigger.Conditions>
+                                                                                <Condition Property="IsMouseOver" Value="True"/>
+                                                                                <Condition Property="Tag" Value="{x:Null}"/>
+                                                                            </MultiTrigger.Conditions>
                                                                             <Setter TargetName="bg" Property="Background" Value="#388E3C"/>
-                                                                        </Trigger>
-                                                                        <Trigger Property="IsPressed" Value="True">
-                                                                            <Setter TargetName="bg" Property="Background" Value="#2E7D32"/>
+                                                                        </MultiTrigger>
+
+                                                                        <Trigger Property="IsEnabled" Value="False">
+                                                                            <Setter TargetName="bg" Property="Background" Value="#E0E0E0"/>
+                                                                            <Setter Property="TextElement.Foreground" Value="#AAA"/>
                                                                         </Trigger>
                                                                     </ControlTemplate.Triggers>
                                                                 </ControlTemplate>
@@ -837,11 +849,12 @@
 
                             <TextBlock Text="下载网络节点 (遇到报错、拉取失败时，请切换节点并重试):" Margin="0,0,0,5" FontWeight="Bold" Foreground="#333"/>
                             <ComboBox x:Name="ProxyNodeBox" Margin="0,0,0,30" SelectionChanged="ProxyNodeBox_SelectionChanged">
-                                <ComboBoxItem Content="[极速] 节点 0：官方直连 (Github 原始服务器)"/>
+                                <ComboBoxItem Content="[国内缓慢] 节点 0：官方直连 (Github 原始服务器)"/>
                                 <ComboBoxItem Content="[国内推荐] 节点 1：GhFast (ghfast.top)"/>
                                 <ComboBoxItem Content="[国内备用] 节点 2：GhProxy (gh-proxy.com)"/>
                                 <ComboBoxItem Content="[国内备用] 节点 3：KkGitHub (kkgithub.com)"/>
                                 <ComboBoxItem Content="[国内备用] 节点 4：JsDelivr CDN"/>
+                                <ComboBoxItem Content="[国内备用] 节点 5：gh.llkk.cc"/>
                             </ComboBox>
 
                             <TextBlock Text="默认 Java 路径 (未单独设置版本的实例将使用此 Java):" Margin="0,0,0,5" FontWeight="Bold" Foreground="#333"/>
@@ -967,6 +980,42 @@
                     <ColumnDefinition Width="220"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
+                <Button x:Name="ImportVersionBtn" 
+                Grid.Column="1"       Panel.ZIndex="99"     Content="📥 导入外部 Jar" 
+                Width="160" 
+                HorizontalAlignment="Right" 
+                VerticalAlignment="Bottom" 
+                Margin="0,0,30,30" 
+                Height="36" 
+                Click="ImportVersionBtn_Click" Cursor="Hand" Foreground="White" FontWeight="Bold" BorderThickness="0">
+
+                    <Button.Effect>
+                        <DropShadowEffect Color="Black" Opacity="0.15" BlurRadius="6" Direction="315" ShadowDepth="2"/>
+                    </Button.Effect>
+
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#2196F3"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="6">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bg" Property="Background" Value="#1976D2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="bg" Property="Background" Value="#1565C0"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
                 <Border Background="White" BorderBrush="#EEE" BorderThickness="0,0,1,0" CornerRadius="0,0,0,8">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -1017,6 +1066,7 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+                
             </Grid>
         </Grid>
 
@@ -1222,20 +1272,44 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="200"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Text="存档管理与急救" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
+                            <TextBlock Grid.Row="0" Text="存档管理与高级设置" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
 
-                            <Border Grid.Row="1" Background="#F8F9FA" BorderBrush="#EEE" BorderThickness="1" CornerRadius="5" Padding="15" Margin="0,0,0,15">
+                            <DockPanel Grid.Row="1" Margin="0,0,0,5">
+                                <TextBlock Text="💾 本地地图存档 (.msav)（目前屁用没有）" FontSize="16" FontWeight="Bold" Foreground="#333" VerticalAlignment="Center"/>
+                                <Button x:Name="RefreshSavesBtn" Content="🔄 刷新并解析" Height="30" Padding="15,0" HorizontalAlignment="Right" DockPanel.Dock="Right" Click="RefreshSavesBtn_Click" Cursor="Hand" Background="#2196F3" Foreground="White" BorderThickness="0" FocusVisualStyle="{x:Null}">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="4"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
+                            </DockPanel>
+
+                            <ListView x:Name="SavesListView" Grid.Row="2" Margin="0,0,0,15" BorderBrush="#EEE" BorderThickness="1">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="地图名称" DisplayMemberBinding="{Binding MapName}" Width="150"/>
+                                        <GridViewColumn Header="波数" DisplayMemberBinding="{Binding Wave}" Width="60"/>
+                                        <GridViewColumn Header="版本" DisplayMemberBinding="{Binding Version}" Width="60"/>
+                                        <GridViewColumn Header="作者" DisplayMemberBinding="{Binding Author}" Width="100"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+
+                            <Border Grid.Row="3" Background="#F8F9FA" BorderBrush="#EEE" BorderThickness="1" CornerRadius="5" Padding="15" Margin="0,0,0,10">
                                 <StackPanel>
                                     <TextBlock Text="当前实例索引状态 (settings.bin):" FontWeight="Bold" Foreground="#555" Margin="0,0,0,5"/>
                                     <TextBlock x:Name="SaveDataStatusText" Text="正在检测..." FontSize="16" FontWeight="Bold" Foreground="#1976D2"/>
                                 </StackPanel>
                             </Border>
 
-                            <DockPanel Grid.Row="2" Margin="0,0,0,10">
+                            <DockPanel Grid.Row="4" Margin="0,0,0,10">
                                 <Button x:Name="ParseSaveDataBtn" Content="🔍 读取编辑" Height="35" Padding="15,0" Background="#E3F2FD" Foreground="#1976D2" BorderThickness="0" Click="ParseSaveData_Click" Cursor="Hand" Margin="0,0,10,0">
                                     <Button.Resources>
                                         <Style TargetType="Border">
@@ -1270,7 +1344,7 @@
                                 <TextBlock Text="🔍 搜索:" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray" HorizontalAlignment="Right"/>
                             </DockPanel>
 
-                            <DataGrid x:Name="SettingsDataGrid" Grid.Row="3" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" 
+                            <DataGrid x:Name="SettingsDataGrid" Grid.Row="5" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" 
                                       HeadersVisibility="Column" Background="White" BorderBrush="#EEE" BorderThickness="1" RowHeight="35"
                                       EnableRowVirtualization="True" EnableColumnVirtualization="True" 
                                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"

@@ -26,11 +26,242 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Buffers.Binary;
 
 namespace MindustryLauncherGUI
 {
+
     public partial class MainWindow : Window
     {
+
+
+        private void RefreshSavesBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 1. 获取 settings.bin 的绝对路径
+                string binPath = GetSettingsBinPath();
+                if (string.IsNullOrEmpty(binPath))
+                {
+                    MessageBox.Show("请先选择版本！");
+                    return;
+                }
+
+                // 2. 拿到 data 文件夹，再拼上 saves
+                string dataDir = Path.GetDirectoryName(binPath);
+                string savesDir = Path.Combine(dataDir, "saves");
+
+                // 3. 检查目录是否存在
+                if (!Directory.Exists(savesDir))
+                {
+                    MessageBox.Show($"存档目录不存在：\n{savesDir}");
+                    return;
+                }
+
+                var saveList = new List<MindustrySaveMetadata>();
+                string[] msavFiles = Directory.GetFiles(savesDir, "*.msav");
+
+                // 4. 解析并组合列表
+                foreach (var file in msavFiles)
+                {
+                    try
+                    {
+                        var meta = ParseMindustrySave(file);
+                        FileInfo fi = new FileInfo(file);
+
+                        // 只用 PlayTime 字段显示最后修改时间
+                        meta.PlayTime = fi.LastWriteTime.ToString("yyyy/MM/dd HH:mm");
+
+                        // 删掉了把 KB 塞进 Wave 的弱智操作，保持原汁原味的 "-" 或 "高压隐藏"
+
+                        saveList.Add(meta);
+                    }
+                    catch { }
+                }
+
+                // 5. 按照修改时间倒序排列并绑定给前台
+                SavesListView.ItemsSource = saveList.OrderByDescending(x => x.PlayTime).ToList();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("刷新失败: " + ex.Message);
+            }
+        }
+        // 核心深度解析逻辑
+        public MindustrySaveMetadata ParseMindustrySave(string path)
+        {
+            string fileName = Path.GetFileName(path);
+            string nameNoExt = Path.GetFileNameWithoutExtension(path);
+
+            var meta = new MindustrySaveMetadata { MapName = nameNoExt };
+
+            // 1. 战役模式判断 (sector-星球-区块)
+            if (fileName.StartsWith("sector-") || int.TryParse(nameNoExt.Replace("-backup", ""), out _))
+            {
+                string processedName = nameNoExt;
+                if (fileName.StartsWith("sector-"))
+                {
+                    string[] parts = nameNoExt.Split('-');
+                    if (parts.Length >= 3)
+                    {
+                        string planet = char.ToUpper(parts[1][0]) + parts[1].Substring(1);
+                        processedName = $"{planet} - 区块 {parts[2]}";
+                    }
+                }
+                else if (nameNoExt.Replace("-backup", "") == "0")
+                {
+                    processedName = "零号地区 (Ground Zero)";
+                }
+
+                meta.MapName = processedName + (nameNoExt.EndsWith("backup") ? " (备份)" : "");
+                meta.Author = "官方战役";
+                meta.Wave = "高压压缩";
+                return meta;
+            }
+
+            // 2. 自定义/沙盒存档尝试读取 MSAV 头
+            try
+            {
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var reader = new BinaryReader(fs))
+                {
+                    if (fs.Length >= 8)
+                    {
+                        byte[] header = reader.ReadBytes(4);
+                        if (Encoding.ASCII.GetString(header) == "MSAV")
+                        {
+                            byte[] verBytes = reader.ReadBytes(4);
+                            Array.Reverse(verBytes);
+                            meta.Version = "v" + BitConverter.ToInt32(verBytes, 0).ToString();
+                            meta.Author = "本地玩家";
+                            meta.Wave = "点击查看";
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                meta.Author = "损坏/未知";
+            }
+
+            return meta;
+        }
+        private void ImportVersionBtn_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. 检查是否设置了版本存储目录
+            if (_config.ManagedFolders == null || _config.ManagedFolders.Count == 0)
+            {
+                MessageBox.Show("请先在设置中添加一个游戏存储目录！", "提示");
+                return;
+            }
+
+            // 2. 呼出资源管理器选择 jar 文件
+            var openFileDialog = new OpenFileDialog
+            {
+                Filter = "Mindustry Jar 文件 (*.jar)|*.jar",
+                Title = "选择要导入的 Mindustry.jar 文件"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                string sourceFilePath = openFileDialog.FileName;
+
+                // 3. 弹窗提示输入版本名称
+                string versionName = PromptForVersionName();
+                if (string.IsNullOrWhiteSpace(versionName)) return; // 用户取消或未输入
+
+                // 4. 校验文件夹名称的合法性
+                foreach (char c in Path.GetInvalidFileNameChars())
+                {
+                    if (versionName.Contains(c))
+                    {
+                        MessageBox.Show("版本名称包含非法字符（如 \\ / : * ? \" < > |），请换一个名称！", "错误");
+                        return;
+                    }
+                }
+
+                // 5. 准备目标路径
+                string targetBaseDir = _config.ManagedFolders[0]; // 默认导入到第一个管理的目录
+                string targetDir = Path.Combine(targetBaseDir, versionName);
+
+                if (Directory.Exists(targetDir))
+                {
+                    MessageBox.Show("该版本名称已存在，请换一个名字！", "提示");
+                    return;
+                }
+
+                // 6. 执行创建和复制
+                try
+                {
+                    Directory.CreateDirectory(targetDir);
+                    // 核心要求：将任意名字的 jar 复制过去并重命名为 Mindustry.jar
+                    File.Copy(sourceFilePath, Path.Combine(targetDir, "Mindustry.jar"), true);
+
+                    MessageBox.Show($"成功导入版本：{versionName}", "成功");
+
+                    // 👇 刷新主 UI 和版本列表，这里的 UpdateMainUI() 是你代码中自带的方法
+                    UpdateMainUI();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"导入失败: {ex.Message}", "错误");
+                }
+            }
+        }
+
+        // ==========================================
+        // 纯代码生成的迷你输入框 (无需新建 XAML)
+        // ==========================================
+        private string PromptForVersionName()
+        {
+            Window prompt = new Window()
+            {
+                Width = 350,
+                Height = 180,
+                Title = "输入版本名称",
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this, // 模态窗口，跟随主窗口
+                ResizeMode = ResizeMode.NoResize,
+                WindowStyle = WindowStyle.ToolWindow,
+                Background = new SolidColorBrush(Color.FromRgb(245, 245, 245))
+            };
+
+            StackPanel panel = new StackPanel() { Margin = new Thickness(20) };
+            panel.Children.Add(new TextBlock() { Text = "请为导入的版本起一个专属名称：", FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 10) });
+
+            TextBox inputBox = new TextBox() { Height = 30, VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(5, 0, 5, 0) };
+            panel.Children.Add(inputBox);
+
+            Button confirmBtn = new Button()
+            {
+                Content = "确定导入",
+                Width = 90,
+                Height = 32,
+                Margin = new Thickness(0, 15, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Cursor = Cursors.Hand,
+                Background = new SolidColorBrush(Color.FromRgb(33, 150, 243)),
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0)
+            };
+
+            // 绑定点击事件和回车键事件
+            confirmBtn.Click += (s, e) => { prompt.DialogResult = true; prompt.Close(); };
+            inputBox.KeyDown += (s, e) => { if (e.Key == Key.Enter) { prompt.DialogResult = true; prompt.Close(); } };
+
+            panel.Children.Add(confirmBtn);
+            prompt.Content = panel;
+
+            // 打开弹窗时自动聚焦输入框
+            prompt.Loaded += (s, e) => { inputBox.Focus(); };
+
+            if (prompt.ShowDialog() == true)
+            {
+                return inputBox.Text.Trim();
+            }
+            return string.Empty;
+        }
+
         // ==========================================
         // 1. 全局配置与基础变量
         // ==========================================
@@ -157,25 +388,19 @@ namespace MindustryLauncherGUI
         {
             try
             {
-                _discoveryListener = new UdpClient();
-                _discoveryListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                _discoveryListener.Client.Bind(new IPEndPoint(IPAddress.Any, 6568));
+                _discoveryListener = new UdpClient(); _discoveryListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true); _discoveryListener.Client.Bind(new IPEndPoint(IPAddress.Any, 6568));
                 while (!token.IsCancellationRequested)
                 {
-                    IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
-                    byte[] bytes = _discoveryListener.Receive(ref remoteEP);
-                    string msg = Encoding.UTF8.GetString(bytes);
-                    string ip = remoteEP.Address.ToString();
+                    IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0); byte[] bytes = _discoveryListener.Receive(ref remoteEP); string msg = Encoding.UTF8.GetString(bytes); string ip = remoteEP.Address.ToString();
 
-                    Dispatcher.Invoke(() => {
+                    // 核心修复：改用 InvokeAsync 防止底层网络线程与界面线程发生死锁
+                    Dispatcher.InvokeAsync(() => {
                         if (msg.StartsWith("MDL_WHO|"))
                         {
-                            string name = msg.Substring(8);
-                            var existing = _onlinePlayers.FirstOrDefault(p => p.IP == ip);
+                            string name = msg.Substring(8); var existing = _onlinePlayers.FirstOrDefault(p => p.IP == ip);
                             if (existing != null) { existing.LastSeen = DateTime.Now; int idx = _onlinePlayers.IndexOf(existing); _onlinePlayers[idx] = new RoomPlayerInfo { IP = ip, Name = name, LastSeen = DateTime.Now }; }
                             else { _onlinePlayers.Add(new RoomPlayerInfo { IP = ip, Name = name, LastSeen = DateTime.Now }); }
                         }
-                        // 👇 新增修改：接收到退出包，立刻从列表中移除该玩家 👇
                         else if (msg.StartsWith("MDL_BYE|"))
                         {
                             var existing = _onlinePlayers.FirstOrDefault(p => p.IP == ip);
@@ -189,24 +414,19 @@ namespace MindustryLauncherGUI
 
         private void StopUdpDiscovery()
         {
-            // 👇 新增修改：主动发送退出广播 (MDL_BYE) 告诉其他人我退出了 👇
             try
             {
                 if (!string.IsNullOrEmpty(_myBroadcastIp) && !string.IsNullOrEmpty(_myNickname))
                 {
-                    using var sender = new UdpClient();
-                    sender.EnableBroadcast = true;
+                    using var sender = new UdpClient(); sender.EnableBroadcast = true;
                     byte[] data = Encoding.UTF8.GetBytes($"MDL_BYE|{_myNickname}");
                     sender.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(_myBroadcastIp), 6568));
                 }
             }
             catch { }
-            // 👆 新增修改结束 👆
-
-            _discoveryCts?.Cancel();
-            _discoveryTimer?.Stop();
-            _discoveryListener?.Close();
-            Dispatcher.Invoke(() => _onlinePlayers.Clear());
+            _discoveryCts?.Cancel(); _discoveryTimer?.Stop();
+            try { _discoveryListener?.Close(); } catch { }
+            Dispatcher.InvokeAsync(() => _onlinePlayers.Clear()); // 防死锁
         }
 
         // ==========================================
@@ -214,28 +434,49 @@ namespace MindustryLauncherGUI
         // ==========================================
         private void CreateRoomBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_easyTierProcess != null && !_easyTierProcess.HasExited) { KillEasyTierProcess(); return; }
+            if (_easyTierProcess != null && !_easyTierProcess.HasExited) { StopUdpDiscovery(); KillEasyTierProcess(); return; }
             string exe = GetEasyTierExePath(); if (string.IsNullOrEmpty(exe)) return;
             string myName = PlayerNameBox.Text.Trim(); if (string.IsNullOrEmpty(myName)) { MessageBox.Show("起个名字吧！"); return; }
             string roomCode = new Random().Next(100000, 999999).ToString(); EasyTierRoomBox.Text = roomCode;
             string sub1 = roomCode.Substring(0, 2); string sub2 = roomCode.Substring(2, 2); string myIp = $"10.{sub1}.{sub2}.1";
             string args = $"-e \"{EasyTierServerBox.Text}\" --network-name \"mdl_room_{roomCode}\" --network-secret \"mdl_pwd_{roomCode}\" --ipv4 {myIp}/24";
-            string fw = "netsh advfirewall firewall add rule name=\"MDL_Net\" dir=in action=allow protocol=ANY localport=6567,6568 >nul 2>&1";
-            StartEasyTierProcess($"/k \"{fw} & \"{exe}\" {args}\"", roomCode, true, myIp, myIp, $"10.{sub1}.{sub2}.255", myName);
+
+            // 核心修复：分离 TCP 和 UDP 防火墙指令，完美执行不报错
+            string fw1 = "netsh advfirewall firewall add rule name=\"MDL_TCP\" dir=in action=allow protocol=TCP localport=6567,6568 >nul 2>&1";
+            string fw2 = "netsh advfirewall firewall add rule name=\"MDL_UDP\" dir=in action=allow protocol=UDP localport=6567,6568 >nul 2>&1";
+            StartEasyTierProcess($"/k \"{fw1} & {fw2} & \"{exe}\" {args}\"", roomCode, true, myIp, myIp, $"10.{sub1}.{sub2}.255", myName);
         }
 
         private void JoinRoomBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_easyTierProcess != null && !_easyTierProcess.HasExited) { KillEasyTierProcess(); return; }
-            string exe = GetEasyTierExePath(); string roomCode = EasyTierRoomBox.Text.Trim();
-            string myName = PlayerNameBox.Text.Trim(); if (string.IsNullOrEmpty(roomCode) || string.IsNullOrEmpty(myName)) { MessageBox.Show("房号和名字都得写！"); return; }
-            string sub1 = roomCode.Substring(0, 2); string sub2 = roomCode.Substring(2, 2); string myIp = $"10.{sub1}.{sub2}.{new Random().Next(2, 254)}";
-            string args = $"-e \"{EasyTierServerBox.Text}\" --network-name \"mdl_room_{roomCode}\" --network-secret \"mdl_pwd_{roomCode}\" --ipv4 {myIp}/24";
-            string fw = "netsh advfirewall firewall add rule name=\"MDL_Net\" dir=in action=allow protocol=ANY localport=6567,6568 >nul 2>&1";
-            StartEasyTierProcess($"/k \"{fw} & \"{exe}\" {args}\"", roomCode, false, myIp, $"10.{sub1}.{sub2}.1", $"10.{sub1}.{sub2}.255", myName);
-        }
+            if (_easyTierProcess != null && !_easyTierProcess.HasExited) { StopUdpDiscovery(); KillEasyTierProcess(); return; }
+            string exe = GetEasyTierExePath();
+            string roomCode = EasyTierRoomBox.Text.Trim();
+            string myName = PlayerNameBox.Text.Trim();
 
-        // 上下文：在 JoinRoomBtn_Click 方法的下方
+            if (string.IsNullOrEmpty(roomCode) || string.IsNullOrEmpty(myName))
+            {
+                MessageBox.Show("房号和名字都得写！");
+                return;
+            }
+
+            // 👇 新增这段逻辑：严格限制房号格式，防止误建“幽灵房间” 👇
+            if (roomCode.Length != 6 || !int.TryParse(roomCode, out _))
+            {
+                MessageBox.Show("无效的房号！房间号必须是 6 位纯数字。");
+                return;
+            }
+            // 👆 新增结束 👆
+
+            string sub1 = roomCode.Substring(0, 2); string sub2 = roomCode.Substring(2, 2);
+            string myIp = $"10.{sub1}.{sub2}.{new Random().Next(2, 254)}";
+            string args = $"-e \"{EasyTierServerBox.Text}\" --network-name \"mdl_room_{roomCode}\" --network-secret \"mdl_pwd_{roomCode}\" --ipv4 {myIp}/24";
+
+            string fw1 = "netsh advfirewall firewall add rule name=\"MDL_TCP\" dir=in action=allow protocol=TCP localport=6567,6568 >nul 2>&1";
+            string fw2 = "netsh advfirewall firewall add rule name=\"MDL_UDP\" dir=in action=allow protocol=UDP localport=6567,6568 >nul 2>&1";
+
+            StartEasyTierProcess($"/c \"{fw1} & {fw2} & \"{exe}\" {args}\"", roomCode, false, myIp, $"10.{sub1}.{sub2}.1", $"10.{sub1}.{sub2}.255", myName);
+        }
         private void StartEasyTierProcess(string cmdArgs, string roomCode, bool isHost, string myIp, string hostIp, string brIp, string myName)
         {
             try
@@ -247,67 +488,55 @@ namespace MindustryLauncherGUI
                     UseShellExecute = true,
                     Verb = "runas",
                     CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden // 隐藏黑框
+                    WindowStyle = ProcessWindowStyle.Hidden
                 });
+
                 if (_easyTierProcess != null)
                 {
                     MyVirtualIpBox.Text = myIp; StartUdpDiscovery(brIp, myName);
 
-                    // 👇 修改点：运行时将对应按钮变红，并禁用另一个按钮 👇
+                    // 创建一个大红色的画刷
+                    var redBrush = new SolidColorBrush(Color.FromRgb(232, 17, 35));
+
                     if (isHost)
                     {
                         CreateRoomBtn.Content = "⏹ 解散大厅";
-                        CreateRoomBtn.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E81123")); // 变红
-                        JoinRoomBtn.IsEnabled = false;
+                        CreateRoomBtn.Background = redBrush; // 直接在代码里染红，绝对有效！
+                        CreateRoomBtn.Tag = "Locked";        // 上锁，掐断 XAML 的悬停变绿功能
+                        JoinRoomBtn.IsEnabled = false;       // 触发灰化
                     }
                     else
                     {
                         JoinRoomBtn.Content = "⏹ 退出大厅";
-                        JoinRoomBtn.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E81123")); // 变红
-                        CreateRoomBtn.IsEnabled = false;
+                        JoinRoomBtn.Background = redBrush;   // 直接在代码里染红，绝对有效！
+                        JoinRoomBtn.Tag = "Locked";          // 上锁，掐断 XAML 的悬停变蓝功能
+                        CreateRoomBtn.IsEnabled = false;     // 触发灰化
                     }
 
                     _easyTierProcess.EnableRaisingEvents = true;
-                    _easyTierProcess.Exited += (s, ev) => Dispatcher.Invoke(() => {
+                    _easyTierProcess.Exited += (s, ev) => Dispatcher.InvokeAsync(() => {
                         _easyTierProcess = null; StopUdpDiscovery(); MyVirtualIpBox.Text = "尚未连接";
 
-                        // 👇 修改点：断开时恢复原状，ClearValue 会自动变回你 XAML 里设置的颜色 👇
                         CreateRoomBtn.Content = "创 建 大 厅";
-                        CreateRoomBtn.ClearValue(Button.BackgroundProperty);
+                        CreateRoomBtn.ClearValue(Button.BackgroundProperty); // 撤销染红，恢复 XAML 原本的绿色
+                        CreateRoomBtn.Tag = null; // 解除防护锁
+
                         JoinRoomBtn.Content = "加 入";
-                        JoinRoomBtn.ClearValue(Button.BackgroundProperty);
+                        JoinRoomBtn.ClearValue(Button.BackgroundProperty);   // 撤销染红，恢复 XAML 原本的蓝色
+                        JoinRoomBtn.Tag = null; // 解除防护锁
+
                         CreateRoomBtn.IsEnabled = true; JoinRoomBtn.IsEnabled = true;
                     });
-
-                    if (isHost) MessageBox.Show($"大厅已在后台开启！房号：{roomCode}");
-                    else MessageBox.Show($"已连接！房主IP：{hostIp}");
                 }
             }
-            catch { MessageBox.Show("请允许管理员权限以配置网络！"); }
+            catch { MessageBox.Show("启动失败，请检查网络或权限。"); }
         }
-        // 上下文：在 KillEasyTierProcess 方法的上方
-
         // --- 修改部分 ---
         private void KillEasyTierProcess()
         {
-            // 👇 加入安全检查：如果进程不存在或已退出，则不执行，防止报错
             if (_easyTierProcess == null || _easyTierProcess.HasExited) return;
-
-            try
-            {
-                // 使用 /T 杀掉进程树（确保 cmd.exe 及其拉起的 core 一起死），/F 强制杀掉
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "taskkill",
-                    Arguments = $"/PID {_easyTierProcess.Id} /T /F",
-                    UseShellExecute = true,
-                    Verb = "runas",
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                })?.WaitForExit();
-            }
-            catch { }
-            finally { _easyTierProcess = null; } // 释放引用
+            // 核心修复：去掉 WaitForExit()，让杀进程的指令在后台静默运行，绝不卡死界面！
+            try { Process.Start(new ProcessStartInfo { FileName = "taskkill", Arguments = $"/PID {_easyTierProcess.Id} /T /F", UseShellExecute = true, Verb = "runas", CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden }); } catch { }
         }
 
         // ==========================================
@@ -341,11 +570,10 @@ namespace MindustryLauncherGUI
 
         private void Window_Closed(object sender, EventArgs e)
         {
-            // 👇 核心修复：在关闭窗口时，先杀掉联机进程并停止探测雷达
-            KillEasyTierProcess();
             StopUdpDiscovery();
+            KillEasyTierProcess(); // 彻底清理底层进程
 
-            // 原有的配置保存逻辑
+            _config.PlayerNickname = PlayerNameBox.Text; // 保存昵称
             _config.GlobalJavaPath = GlobalJavaComboBox.Text;
             _config.GlobalRamMB = (int)GlobalRamSlider.Value;
             SaveConfig();
@@ -368,9 +596,10 @@ namespace MindustryLauncherGUI
             {
                 return url.Replace("https://raw.githubusercontent.com/", "https://cdn.jsdelivr.net/gh/").Replace("/master/", "@master/").Replace("/main/", "@main/");
             }
+            if (m == 5) return "https://gh.llkk.cc/" + url;
+
             return url;
         }
-
         private void ProxyNodeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ProxyNodeBox.SelectedIndex != -1)
@@ -1501,6 +1730,75 @@ namespace MindustryLauncherGUI
             w.Write(b);
         }
     }
+    // 必须要有的数据模型类
+    public class MindustrySaveMetadata
+    {
+        public string MapName { get; set; } = "未知地图";
+        public string Wave { get; set; } = "-";
+        public string Version { get; set; } = "-";
+        public string Author { get; set; } = "未知作者";
+        public string Description { get; set; } = "无描述";
+        public string PlayTime { get; set; } = "00:00";
+    }
+    public static class MsavParser
+    {
+        public static MindustrySaveMetadata Parse(string filePath)
+        {
+            using (var fs = File.OpenRead(filePath))
+            using (var reader = new BinaryReader(fs))
+            {
+                // 1. 校验 Header (MSAV)
+                byte[] header = reader.ReadBytes(4);
+                if (Encoding.ASCII.GetString(header) != "MSAV")
+                    throw new Exception("不是有效的 Mindustry 存档文件！");
+
+                // 2. 读取版本
+                int version = ReadBigEndianInt(reader);
+
+                // 👇 修复 1：加上 .ToString()，顺便拼个 "v" 好看点 👇
+                var meta = new MindustrySaveMetadata { Version = "v" + version.ToString() };
+
+                // 3. 读取 Meta 内容
+                meta.MapName = ReadJavaUTF(reader);
+                meta.Author = ReadJavaUTF(reader);
+                meta.Description = ReadJavaUTF(reader);
+
+                // 👇 修复 2：加上 .ToString() 👇
+                meta.Wave = ReadBigEndianInt(reader).ToString();
+
+                // 👇 修复 3：加上 .ToString() (这里读出来的是毫秒) 👇
+                meta.PlayTime = ReadBigEndianLong(reader).ToString() + " ms";
+
+                return meta;
+            }
+        }
+        private static int ReadBigEndianInt(BinaryReader reader)
+        {
+            byte[] data = reader.ReadBytes(4);
+            return BinaryPrimitives.ReadInt32BigEndian(data);
+        }
+
+        private static long ReadBigEndianLong(BinaryReader reader)
+        {
+            byte[] data = reader.ReadBytes(8);
+            return BinaryPrimitives.ReadInt64BigEndian(data);
+        }
+
+        private static string ReadJavaUTF(BinaryReader reader)
+        {
+            // Java DataOutputStream.writeUTF 的前两个字节是字符串长度
+            byte[] lenBytes = reader.ReadBytes(2);
+            ushort length = BinaryPrimitives.ReadUInt16BigEndian(lenBytes);
+
+            if (length == 0) return string.Empty;
+
+            byte[] content = reader.ReadBytes(length);
+            return Encoding.UTF8.GetString(content);
+        }
+    }
+
+
+
 
     public static class SmoothScrollHelper
     {
@@ -1736,6 +2034,7 @@ namespace MindustryLauncherGUI
             return info;
 
         }
+
     }
 
     public class JavaInfo { public string Path { get; set; } = ""; public string Version { get; set; } = ""; public int VersionNumber { get; set; } }
