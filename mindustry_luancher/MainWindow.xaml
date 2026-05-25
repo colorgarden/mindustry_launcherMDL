@@ -1,8 +1,8 @@
-﻿<Window x:Class="MindustryLauncherGUI.MainWindow"
+﻿<Window x:Class="mindustry_launcher.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MDL - Mindustry Launcher" Height="740" Width="1044"
-        WindowStartupLocation="CenterScreen" 
+        Title="MDL - Mindustry Launcher" Height="740" Width="1044" MinWidth="850" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
         Background="Transparent" WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResize"
         FontFamily="/Fonts/#fontello, Microsoft YaHei, Segoe UI"
         TextOptions.TextFormattingMode="Ideal" 
@@ -546,17 +546,19 @@
                             </Grid.RowDefinitions>
                             <DockPanel Grid.Row="0" Margin="0,0,0,15">
                                 <TextBlock Text="模组浏览器" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
-                                <Button Content="刷新列表" DockPanel.Dock="Right" Padding="15,5" Margin="10,0,0,0" Background="White" BorderBrush="#CCC" Click="RefreshModBrowser_Click" FocusVisualStyle="{x:Null}">
-                                    <Button.Resources>
-                                        <Style TargetType="Border">
-                                            <Setter Property="CornerRadius" Value="3"/>
-                                        </Style>
-                                    </Button.Resources>
-                                </Button>
-                                <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" DockPanel.Dock="Right" HorizontalAlignment="Right" Background="White">
-                                    <TextBox x:Name="ModSearchBox" Width="250" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="ModSearchBox_TextChanged"/>
-                                </Border>
-                                <TextBlock Text="🔍 搜索:" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray"/>
+                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                                    <Button Content="刷新列表" Padding="15,5" Background="White" BorderBrush="#CCC" Click="RefreshModBrowser_Click" FocusVisualStyle="{x:Null}">
+                                        <Button.Resources>
+                                            <Style TargetType="Border">
+                                                <Setter Property="CornerRadius" Value="3"/>
+                                            </Style>
+                                        </Button.Resources>
+                                    </Button>
+                                    <TextBlock Text="🔍 搜索:" VerticalAlignment="Center" Margin="15,0,5,0" Foreground="Gray"/>
+                                    <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" Background="White">
+                                        <TextBox x:Name="ModSearchBox" Width="250" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="ModSearchBox_TextChanged"/>
+                                    </Border>
+                                </StackPanel>
                             </DockPanel>
                             <TextBlock x:Name="ModBrowserLoadingText" Grid.Row="1" Text="正在从 GitHub 拉取官方模组列表..." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="16"/>
                             <ListBox x:Name="ModBrowserListBox" Grid.Row="1" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" PreviewMouseWheel="SmoothScroll_PreviewMouseWheel">
@@ -621,20 +623,29 @@
                                 </Grid.RowDefinitions>
                                 <DockPanel Grid.Row="0" Margin="0,0,0,15">
                                     <TextBlock x:Name="SchematicSourceTitle" Text="社区蓝图库" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
-                                    <Button Content="强制重新获取" DockPanel.Dock="Right" Padding="15,5" Margin="10,0,0,0" Background="White" BorderBrush="#CCC" Click="RefreshSchematicBrowser_Click" FocusVisualStyle="{x:Null}">
-                                        <Button.Resources>
-                                            <Style TargetType="Border">
-                                                <Setter Property="CornerRadius" Value="3"/>
-                                            </Style>
-                                        </Button.Resources>
-                                    </Button>
-                                    <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" DockPanel.Dock="Right" HorizontalAlignment="Right" Background="White">
-                                        <TextBox x:Name="SchematicSearchBox" Width="250" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="SchematicSearchBox_TextChanged"/>
-                                    </Border>
-                                    <TextBlock Text="🔍 搜索:" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray"/>
+                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                                        <Button Content="强制重新获取" Padding="15,5" Background="White" BorderBrush="#CCC" Click="RefreshSchematicBrowser_Click" FocusVisualStyle="{x:Null}">
+                                            <Button.Resources>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="CornerRadius" Value="3"/>
+                                                </Style>
+                                            </Button.Resources>
+                                        </Button>
+                                        <TextBlock Text="🔍 搜索:" VerticalAlignment="Center" Margin="15,0,5,0" Foreground="Gray"/>
+                                        <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" Background="White">
+                                            <TextBox x:Name="SchematicSearchBox" Width="250" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="SchematicSearchBox_TextChanged"/>
+                                        </Border>
+                                    </StackPanel>
                                 </DockPanel>
 
-                                <TextBlock x:Name="SchematicBrowserLoadingText" Grid.Row="1" Text="正在下载并解析仓库 ZIP，首次拉取可能需要十几秒，请耐心等待..." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="16"/>
+                                <TextBlock x:Name="SchematicBrowserLoadingText" Grid.Row="1" Text="正在解析蓝图..." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="16" Visibility="Collapsed"/>
+                                <Button x:Name="FetchSchematicBtn" Grid.Row="1" Content="拉取蓝图列表" Width="160" Height="45" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#2196F3" Foreground="White" BorderThickness="0" FontSize="16" Click="FetchSchematic_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="5"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
 
                                 <ListBox x:Name="SchematicBrowserListBox" Grid.Row="1" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" PreviewMouseWheel="SmoothScroll_PreviewMouseWheel">
                                     <ListBox.ItemTemplate>
@@ -1338,10 +1349,12 @@
                                     <ComboBoxItem Content="🚀 仅看科技解锁"/>
                                 </ComboBox>
 
-                                <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" DockPanel.Dock="Right" HorizontalAlignment="Right" Background="White" Width="180">
-                                    <TextBox x:Name="SettingsSearchBox" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="SettingsSearchBox_TextChanged"/>
-                                </Border>
-                                <TextBlock Text="🔍 搜索:" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray" HorizontalAlignment="Right"/>
+                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10,0,0,0">
+                                    <TextBlock Text="🔍 搜索:" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray"/>
+                                    <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" Background="White" Width="180">
+                                        <TextBox x:Name="SettingsSearchBox" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="SettingsSearchBox_TextChanged"/>
+                                    </Border>
+                                </StackPanel>
                             </DockPanel>
 
                             <DataGrid x:Name="SettingsDataGrid" Grid.Row="5" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" 
@@ -1526,6 +1539,59 @@
                         </Button>
 
                         <Button Content="关闭" DockPanel.Dock="Right" Width="100" Height="35" Background="#E0E0E0" Foreground="#333" BorderThickness="0" Click="CloseReleaseNotes_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                    </DockPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 通用弹窗 Overlay -->
+        <Grid x:Name="DialogOverlay" Background="#99000000" Visibility="Collapsed" Panel.ZIndex="500" Opacity="0">
+            <Grid.RenderTransform>
+                <TranslateTransform Y="20"/>
+            </Grid.RenderTransform>
+            <Border Background="White" CornerRadius="8" MinWidth="380" MaxWidth="480" VerticalAlignment="Center" Padding="25">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                        <Border x:Name="DialogIconBorder" Width="40" Height="40" CornerRadius="20" Margin="0,0,12,0">
+                            <TextBlock x:Name="DialogIconText" Text="ℹ" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="DialogTitleText" Text="提示" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock x:Name="DialogBodyText" Grid.Row="1" Text="消息内容" TextWrapping="Wrap" Foreground="#444" FontSize="14" LineHeight="22" Margin="0,0,0,20"/>
+                    <DockPanel Grid.Row="2" LastChildFill="False">
+                        <Button x:Name="DialogCancelBtn" Content="取消" DockPanel.Dock="Right" Width="90" Height="35" Background="#E0E0E0" Foreground="#333" BorderThickness="0" Margin="10,0,0,0" Click="DialogCancel_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                        <Button x:Name="DialogNoBtn" Content="否" DockPanel.Dock="Right" Width="90" Height="35" Background="#E0E0E0" Foreground="#333" BorderThickness="0" Margin="10,0,0,0" Click="DialogNo_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                        <Button x:Name="DialogYesBtn" Content="是" DockPanel.Dock="Right" Width="90" Height="35" Background="#2196F3" Foreground="White" BorderThickness="0" Click="DialogYes_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                        <Button x:Name="DialogOkBtn" Content="确定" DockPanel.Dock="Right" Width="90" Height="35" Background="#2196F3" Foreground="White" BorderThickness="0" Click="DialogOk_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
                             <Button.Resources>
                                 <Style TargetType="Border">
                                     <Setter Property="CornerRadius" Value="5"/>
