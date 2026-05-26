@@ -1,6 +1,6 @@
 # MDL - Mindustry Launcher
 
-一个运行在 Windows 7+ 系统上的 Mindustry 启动器，支持多版本管理、模组浏览、蓝图下载和联机功能。
+一个运行在 Windows 7+ 系统上的 Mindustry 启动器，支持多版本管理、模组浏览、蓝图下载和联机功能。[:us: English](README.en.md)
 
 > 注意：本项目大部分内容由 AI 生成。
 
