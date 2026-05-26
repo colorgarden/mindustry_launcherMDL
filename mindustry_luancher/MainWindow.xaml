@@ -218,8 +218,8 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="#555"/>
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="Padding" Value="15,5"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="8,5"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -302,6 +302,44 @@
             </Setter>
         </Style>
 
+        <Style x:Key="SubTabButtonStyle" TargetType="RadioButton" BasedOn="{StaticResource NoFocusStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="Transparent" Padding="10,7" Margin="0,0,2,0" CornerRadius="5" Cursor="Hand">
+                            <TextBlock x:Name="txt" Text="{TemplateBinding Content}" Foreground="#555" FontWeight="Bold" FontSize="13" HorizontalAlignment="Left"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="border" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#E3F2FD" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="border" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="Transparent" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                                <Setter TargetName="txt" Property="Foreground" Value="#2196F3"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#F5F5F5"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="ScrollBar">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -350,6 +388,7 @@
             <Grid x:Name="MainContainer">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="60"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
@@ -360,47 +399,35 @@
 
                             <Button x:Name="NavLaunchBtn" Style="{StaticResource NavButtonStyle}" Click="NavLaunch_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 6,4 L 22,12 L 6,20 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="14" Height="14" Margin="0,0,8,0" Stretch="Uniform" VerticalAlignment="Center"/>
+                                    <Path Data="M 6,4 L 22,12 L 6,20 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="14" Height="14" Margin="0,0,5,0" Stretch="Uniform" VerticalAlignment="Center"/>
                                     <TextBlock Text="启动" FontWeight="Bold" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
 
                             <Button x:Name="NavDownloadBtn" Style="{StaticResource NavButtonStyle}" Click="NavDownload_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 12,2 L 12,16 M 7,11 L 12,17 L 17,11 M 4,21 L 20,21" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeEndLineCap="Round" StrokeStartLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" Width="14" Height="14" Margin="0,0,8,0" Stretch="Uniform" VerticalAlignment="Center"/>
+                                    <Path Data="M 12,2 L 12,16 M 7,11 L 12,17 L 17,11 M 4,21 L 20,21" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeEndLineCap="Round" StrokeStartLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" Width="14" Height="14" Margin="0,0,5,0" Stretch="Uniform" VerticalAlignment="Center"/>
                                     <TextBlock Text="下载" FontWeight="Bold" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
 
-                            <Button x:Name="NavModBrowserBtn" Style="{StaticResource NavButtonStyle}" Click="NavModBrowser_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 12,2 L 22,7 L 22,17 L 12,22 L 2,17 L 2,7 Z M 12,2 L 12,12 L 22,7 M 12,12 L 2,7 M 12,12 L 12,22" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" Fill="Transparent" Width="15" Height="15" Margin="0,0,8,0" Stretch="Uniform" VerticalAlignment="Center"/>
-                                    <TextBlock Text="模组" FontWeight="Bold" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
 
-                            <Button x:Name="NavSchematicsBtn" Style="{StaticResource NavButtonStyle}" Click="NavSchematics_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 9,3 L 3,6 L 3,21 L 9,18 L 15,21 L 21,18 L 21,3 L 15,6 L 9,3 Z M 9,3 L 9,18 M 15,6 L 15,21" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" Fill="Transparent" Width="15" Height="15" Margin="0,0,8,0" Stretch="Uniform" VerticalAlignment="Center"/>
-                                    <TextBlock Text="蓝图" FontWeight="Bold" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
                             <Button x:Name="NavMultiplayerBtn" Style="{StaticResource NavButtonStyle}" Click="NavMultiplayer_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🌐" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="🌐" FontSize="16" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="联机" FontWeight="Bold" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="NavSettingsBtn" Style="{StaticResource NavButtonStyle}" Click="NavSettings_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 12,15 A 3,3 0 1 0 12,9 A 3,3 0 1 0 12,15 M 10.5,2 L 13.5,2 L 14,5.5 A 7,7 0 0 1 17,7 L 20,5.5 L 21.5,8 L 19,10.5 A 7,7 0 0 1 19,13.5 L 21.5,16 L 20,18.5 L 17,17 A 7,7 0 0 1 14,18.5 L 13.5,22 L 10.5,22 L 10,18.5 A 7,7 0 0 1 7,17 L 4,18.5 L 2.5,16 L 5,13.5 A 7,7 0 0 1 5,10.5 L 2.5,8 L 4,5.5 L 7,7 A 7,7 0 0 1 10,5.5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" Fill="Transparent" Width="15" Height="15" Margin="0,0,8,0" Stretch="Uniform" VerticalAlignment="Center"/>
+                                    <Path Data="M 12,15 A 3,3 0 1 0 12,9 A 3,3 0 1 0 12,15 M 10.5,2 L 13.5,2 L 14,5.5 A 7,7 0 0 1 17,7 L 20,5.5 L 21.5,8 L 19,10.5 A 7,7 0 0 1 19,13.5 L 21.5,16 L 20,18.5 L 17,17 A 7,7 0 0 1 14,18.5 L 13.5,22 L 10.5,22 L 10,18.5 A 7,7 0 0 1 7,17 L 4,18.5 L 2.5,16 L 5,13.5 A 7,7 0 0 1 5,10.5 L 2.5,8 L 4,5.5 L 7,7 A 7,7 0 0 1 10,5.5 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" Fill="Transparent" Width="15" Height="15" Margin="0,0,5,0" Stretch="Uniform" VerticalAlignment="Center"/>
                                     <TextBlock Text="设置" FontWeight="Bold" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
 
                             <Button x:Name="NavMoreBtn" Style="{StaticResource NavButtonStyle}" Click="NavMore_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 3,6 L 21,6 M 3,12 L 21,12 M 3,18 L 21,18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeEndLineCap="Round" Fill="Transparent" Width="15" Height="15" Margin="0,0,8,0" Stretch="Uniform" VerticalAlignment="Center"/>
+                                    <Path Data="M 3,6 L 21,6 M 3,12 L 21,12 M 3,18 L 21,18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeEndLineCap="Round" Fill="Transparent" Width="15" Height="15" Margin="0,0,5,0" Stretch="Uniform" VerticalAlignment="Center"/>
                                     <TextBlock Text="更多" FontWeight="Bold" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -409,7 +436,7 @@
                 </Border>
                 
 
-                <TabControl x:Name="MainTabControl" Grid.Row="1" BorderThickness="0" Background="Transparent" SelectionChanged="MainTabControl_SelectionChanged">
+                <TabControl x:Name="MainTabControl" Grid.Row="2" BorderThickness="0" Background="Transparent" SelectionChanged="MainTabControl_SelectionChanged">
                     <TabControl.Template>
                         <ControlTemplate TargetType="TabControl">
                             <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent">
@@ -439,7 +466,7 @@
                             <Border Background="White" BorderBrush="#EEE" BorderThickness="0,0,1,0" CornerRadius="0,0,0,8">
                                 <StackPanel Margin="20" VerticalAlignment="Center">
                                     <Image x:Name="MainGameIcon" Width="80" Height="80" Margin="0,0,0,15"/>
-                                    <TextBlock Text="Mindustry" FontSize="18" HorizontalAlignment="Center" Margin="0,0,0,30" Foreground="#555"/>
+                                    <TextBlock x:Name="GameNameText" Text="Mindustry" FontSize="18" HorizontalAlignment="Center" Margin="0,0,0,30" Foreground="#555"/>
                                     <Button x:Name="LaunchBtn" Height="65" Background="#2196F3" Foreground="White" BorderThickness="0" Click="LaunchGame_Click" Cursor="Hand" FocusVisualStyle="{x:Null}">
                                         <Button.Resources>
                                             <Style TargetType="Border">
@@ -447,7 +474,7 @@
                                             </Style>
                                         </Button.Resources>
                                         <StackPanel>
-                                            <TextBlock Text="启动游戏" FontSize="20" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="LaunchGameText" Text="启动游戏" FontSize="20" HorizontalAlignment="Center"/>
                                             <TextBlock x:Name="CurrentLaunchVersionText" Text="未选择版本" FontSize="12" Foreground="#DDFFFFFF" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                                         </StackPanel>
                                     </Button>
@@ -457,14 +484,14 @@
                                             <ColumnDefinition Width="10"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" Content="版本选择" Height="40" Background="White" BorderBrush="#CCC" Click="OpenVersionSelect_Click" FocusVisualStyle="{x:Null}">
+                                        <Button x:Name="VersionSelectBtn" Grid.Column="0" Content="版本选择" Height="40" Background="White" BorderBrush="#CCC" Click="OpenVersionSelect_Click" FocusVisualStyle="{x:Null}">
                                             <Button.Resources>
                                                 <Style TargetType="Border">
                                                     <Setter Property="CornerRadius" Value="3"/>
                                                 </Style>
                                             </Button.Resources>
                                         </Button>
-                                        <Button Grid.Column="2" Content="版本设置" Height="40" Background="White" BorderBrush="#CCC" Click="OpenVersionSettings_Click" FocusVisualStyle="{x:Null}">
+                                        <Button x:Name="VersionSettingsBtn" Grid.Column="2" Content="版本设置" Height="40" Background="White" BorderBrush="#CCC" Click="OpenVersionSettings_Click" FocusVisualStyle="{x:Null}">
                                             <Button.Resources>
                                                 <Style TargetType="Border">
                                                     <Setter Property="CornerRadius" Value="3"/>
@@ -476,7 +503,7 @@
                             </Border>
                             <Grid Grid.Column="1" Margin="20">
                                 <Border Background="#E3F2FD" CornerRadius="5" Padding="15" VerticalAlignment="Top">
-                                    <TextBlock Text="📰 欢迎使用 MDL，享受极致丝滑的 Mindustry 启动体验。" Foreground="#1976D2" FontSize="14"/>
+                                    <TextBlock x:Name="WelcomeText" Text="📰 欢迎使用 MDL，享受极致丝滑的 Mindustry 启动体验。" Foreground="#1976D2" FontSize="14"/>
                                 </Border>
                             </Grid>
                         </Grid>
@@ -490,10 +517,10 @@
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" BorderBrush="#EEE" BorderThickness="0,0,1,0" Margin="0,0,20,0">
                                 <StackPanel>
-                                    <TextBlock Text="下载源" FontSize="18" FontWeight="Bold" Foreground="#333" Margin="5,0,0,20"/>
+                                    <TextBlock x:Name="DownloadSourceLabel" Text="下载源" FontSize="18" FontWeight="Bold" Foreground="#333" Margin="5,0,0,20"/>
                                     <RadioButton x:Name="RbOfficial" Content="官方原版" Style="{StaticResource LeftSubTabButtonStyle}" Tag="Anuken/Mindustry" Checked="DownloadSource_Checked"/>
-                                    <RadioButton Content="X端 (TinyLake)" Style="{StaticResource LeftSubTabButtonStyle}" Tag="TinyLake/MindustryX" Checked="DownloadSource_Checked"/>
-                                    <RadioButton Content="Foo端 (Antigrief)" Style="{StaticResource LeftSubTabButtonStyle}" Tag="mindustry-antigrief/mindustry-client-v8-builds" Checked="DownloadSource_Checked"/>
+                                    <RadioButton x:Name="RbX" Content="X端 (TinyLake)" Style="{StaticResource LeftSubTabButtonStyle}" Tag="TinyLake/MindustryX" Checked="DownloadSource_Checked"/>
+                                    <RadioButton x:Name="RbFoo" Content="Foo端 (Antigrief)" Style="{StaticResource LeftSubTabButtonStyle}" Tag="mindustry-antigrief/mindustry-client-v8-builds" Checked="DownloadSource_Checked"/>
                                 </StackPanel>
                             </Border>
                             <Grid Grid.Column="1">
@@ -506,7 +533,7 @@
                                 <ListBox x:Name="RemoteVersionListBox" Grid.Row="1" Background="White" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" PreviewMouseWheel="SmoothScroll_PreviewMouseWheel">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="Transparent" BorderBrush="#EEE" BorderThickness="0,0,0,1" Padding="15" Margin="5" ToolTip="右键查看更新说明" MouseRightButtonUp="RemoteVersion_RightClick">
+                                            <Border Background="Transparent" BorderBrush="#EEE" BorderThickness="0,0,0,1" Padding="15" Margin="5" ToolTip="{Binding UI_RightClickHint}" MouseRightButtonUp="RemoteVersion_RightClick">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
@@ -514,9 +541,9 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding TagName}" FontSize="18" FontWeight="Bold" Foreground="#333"/>
-                                                        <TextBlock Text="可下载的发行版本 (右键查看日志)" Foreground="Gray" FontSize="12" Margin="0,5,0,0"/>
+                                                        <TextBlock Text="{Binding UI_AvailableHint}" Foreground="Gray" FontSize="12" Margin="0,5,0,0"/>
                                                     </StackPanel>
-                                                    <Button Grid.Column="1" Content="下载" Width="80" Height="35" Background="#2196F3" Foreground="White" BorderThickness="0" Click="DownloadVersion_Click" Tag="{Binding}" Cursor="Hand" FocusVisualStyle="{x:Null}">
+                                                    <Button Grid.Column="1" Content="{Binding UI_DownloadText}" Width="80" Height="35" Background="#2196F3" Foreground="White" BorderThickness="0" Click="DownloadVersion_Click" Tag="{Binding}" Cursor="Hand" FocusVisualStyle="{x:Null}">
                                                         <Button.Resources>
                                                             <Style TargetType="Border">
                                                                 <Setter Property="CornerRadius" Value="5"/>
@@ -544,27 +571,31 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <DockPanel Grid.Row="0" Margin="0,0,0,15">
-                                <TextBlock Text="模组浏览器" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
-                                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                    <Button Content="刷新列表" Padding="15,5" Background="White" BorderBrush="#CCC" Click="RefreshModBrowser_Click" FocusVisualStyle="{x:Null}">
+                            <Grid Grid.Row="0" Margin="0,0,0,15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="ModBrowserTitle" Text="模组浏览器" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ModSearchLabel" Text="🔍 搜索:" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray"/>
+                                    <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" Background="White">
+                                        <TextBox x:Name="ModSearchBox" Width="250" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="ModSearchBox_TextChanged"/>
+                                    </Border>
+                                    <Button x:Name="ModBrowserRefreshBtn" Content="刷新列表" Padding="15,5" Background="White" BorderBrush="#CCC" Margin="15,0,0,0" Click="RefreshModBrowser_Click" FocusVisualStyle="{x:Null}">
                                         <Button.Resources>
                                             <Style TargetType="Border">
                                                 <Setter Property="CornerRadius" Value="3"/>
                                             </Style>
                                         </Button.Resources>
                                     </Button>
-                                    <TextBlock Text="🔍 搜索:" VerticalAlignment="Center" Margin="15,0,5,0" Foreground="Gray"/>
-                                    <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" Background="White">
-                                        <TextBox x:Name="ModSearchBox" Width="250" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="ModSearchBox_TextChanged"/>
-                                    </Border>
                                 </StackPanel>
-                            </DockPanel>
+                            </Grid>
                             <TextBlock x:Name="ModBrowserLoadingText" Grid.Row="1" Text="正在从 GitHub 拉取官方模组列表..." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="16"/>
                             <ListBox x:Name="ModBrowserListBox" Grid.Row="1" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" PreviewMouseWheel="SmoothScroll_PreviewMouseWheel">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="White" CornerRadius="5" Margin="5" Padding="15" ToolTip="右键查看详情" MouseRightButtonUp="ModItem_RightClick">
+                                        <Border Background="White" CornerRadius="5" Margin="5" Padding="15" ToolTip="{Binding UI_RightClickHint}" MouseRightButtonUp="ModItem_RightClick">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/>
@@ -584,9 +615,9 @@
                                                         <TextBlock Text="{Binding Repo}" Foreground="Gray" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0"/>
                                                     </DockPanel>
                                                     <TextBlock Text="{Binding AuthorFormatted}" Foreground="#2196F3" FontSize="12" Margin="0,5,0,5"/>
-                                                    <TextBlock Text="右键展示介绍文本" TextWrapping="Wrap" Foreground="#666" MaxHeight="40"/>
+                                                    <TextBlock Text="{Binding UI_RightClickHint}" TextWrapping="Wrap" Foreground="#666" MaxHeight="40"/>
                                                 </StackPanel>
-                                                <Button Grid.Column="2" Content="安装" Height="35" VerticalAlignment="Center" Background="#4CAF50" Foreground="White" BorderThickness="0" Click="InstallModFromBrowser_Click" Tag="{Binding}" Cursor="Hand" FocusVisualStyle="{x:Null}">
+                                                <Button Grid.Column="2" Content="{Binding UI_InstallText}" Height="35" VerticalAlignment="Center" Background="#4CAF50" Foreground="White" BorderThickness="0" Click="InstallModFromBrowser_Click" Tag="{Binding}" Cursor="Hand" FocusVisualStyle="{x:Null}">
                                                     <Button.Resources>
                                                         <Style TargetType="Border">
                                                             <Setter Property="CornerRadius" Value="5"/>
@@ -610,8 +641,8 @@
 
                             <Border Grid.Column="0" BorderBrush="#EEE" BorderThickness="0,0,1,0" Margin="0,0,20,0">
                                 <StackPanel>
-                                    <TextBlock Text="蓝图源" FontSize="18" FontWeight="Bold" Foreground="#333" Margin="5,0,0,20"/>
-                                    <RadioButton x:Name="RbSchemMinRi2" Content="MinRi2 档案" Style="{StaticResource LeftSubTabButtonStyle}" Tag="MinRi2/schematics-archives|master" Checked="SchematicSource_Checked"/>
+                                    <TextBlock x:Name="SchematicSourceLabel" Text="蓝图源" FontSize="18" FontWeight="Bold" Foreground="#333" Margin="5,0,0,20"/>
+                                    <RadioButton x:Name="RbSchemMinRi2" Content="MinRi2 档案" Style="{StaticResource LeftSubTabButtonStyle}" Tag="MinRi2/schematics-archives|master" IsChecked="True" Checked="SchematicSource_Checked"/>
                                     <RadioButton x:Name="RbSchemDesignIt" Content="DesignIt 社区" Style="{StaticResource LeftSubTabButtonStyle}" Tag="MindustryDesignIt/design-it|main" Checked="SchematicSource_Checked"/>
                                 </StackPanel>
                             </Border>
@@ -621,22 +652,21 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
-                                <DockPanel Grid.Row="0" Margin="0,0,0,15">
-                                    <TextBlock x:Name="SchematicSourceTitle" Text="社区蓝图库" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
-                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                        <Button Content="强制重新获取" Padding="15,5" Background="White" BorderBrush="#CCC" Click="RefreshSchematicBrowser_Click" FocusVisualStyle="{x:Null}">
+                                <Grid Grid.Row="0" Margin="0,0,0,15">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock x:Name="SchematicSearchLabel" Text="🔍 搜索:" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray"/>
+                                        <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" Background="White">
+                                            <TextBox x:Name="SchematicSearchBox" Width="250" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="SchematicSearchBox_TextChanged"/>
+                                        </Border>
+                                        <Button x:Name="SchematicRefreshBtn" Content="强制重新获取" Padding="15,5" Background="White" BorderBrush="#CCC" Margin="15,0,0,0" Click="RefreshSchematicBrowser_Click" FocusVisualStyle="{x:Null}">
                                             <Button.Resources>
                                                 <Style TargetType="Border">
                                                     <Setter Property="CornerRadius" Value="3"/>
                                                 </Style>
                                             </Button.Resources>
                                         </Button>
-                                        <TextBlock Text="🔍 搜索:" VerticalAlignment="Center" Margin="15,0,5,0" Foreground="Gray"/>
-                                        <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" Background="White">
-                                            <TextBox x:Name="SchematicSearchBox" Width="250" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="SchematicSearchBox_TextChanged"/>
-                                        </Border>
                                     </StackPanel>
-                                </DockPanel>
+                                </Grid>
 
                                 <TextBlock x:Name="SchematicBrowserLoadingText" Grid.Row="1" Text="正在解析蓝图..." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="16" Visibility="Collapsed"/>
                                 <Button x:Name="FetchSchematicBtn" Grid.Row="1" Content="拉取蓝图列表" Width="160" Height="45" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#2196F3" Foreground="White" BorderThickness="0" FontSize="16" Click="FetchSchematic_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
@@ -663,7 +693,7 @@
                                                         </DockPanel>
                                                         <TextBlock Text="{Binding UI_Description}" Foreground="#666" FontSize="12" Margin="30,5,0,0" TextWrapping="Wrap" MaxHeight="40" TextTrimming="CharacterEllipsis"/>
                                                     </StackPanel>
-                                                    <Button Grid.Column="1" Content="下载" Height="35" VerticalAlignment="Center" Background="#2196F3" Foreground="White" BorderThickness="0" Click="InstallSchematicFromBrowser_Click" Tag="{Binding}" Cursor="Hand" FocusVisualStyle="{x:Null}">
+                                                    <Button Grid.Column="1" Content="{Binding UI_DownloadText}" Height="35" VerticalAlignment="Center" Background="#2196F3" Foreground="White" BorderThickness="0" Click="InstallSchematicFromBrowser_Click" Tag="{Binding}" Cursor="Hand" FocusVisualStyle="{x:Null}">
                                                         <Button.Resources>
                                                             <Style TargetType="Border">
                                                                 <Setter Property="CornerRadius" Value="5"/>
@@ -684,7 +714,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Text="联机大厅 (EasyTier 虚拟局域网)" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
+                            <TextBlock x:Name="MultiplayerTitle" Text="联机大厅 (EasyTier 虚拟局域网)" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
 
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
@@ -702,17 +732,17 @@
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="游戏昵称:" FontWeight="Bold" VerticalAlignment="Center" FontSize="14" Foreground="#333333"/>
+                                            <TextBlock x:Name="NicknameLabel" Text="游戏昵称:" FontWeight="Bold" VerticalAlignment="Center" FontSize="14" Foreground="#333333"/>
                                             <TextBox x:Name="PlayerNameBox" Grid.Column="1" Margin="10,0,20,0" Padding="5" VerticalContentAlignment="Center" FontSize="14" Text="Mindustry玩家" Background="Transparent" BorderThickness="0,0,0,1"/>
 
-                                            <TextBlock Grid.Column="2" Text="虚拟IP:" FontWeight="Bold" VerticalAlignment="Center" FontSize="14" Foreground="#333333"/>
+                                            <TextBlock x:Name="VirtualIpLabel" Grid.Column="2" Text="虚拟IP:" FontWeight="Bold" VerticalAlignment="Center" FontSize="14" Foreground="#333333"/>
                                             <TextBox x:Name="MyVirtualIpBox" Grid.Column="3" Text="尚未连接" IsReadOnly="True" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" FontSize="15" Foreground="#1565C0" FontWeight="Bold" Margin="5,0,0,0"/>
                                         </Grid>
                                     </Border>
 
                                     <Border Background="White" BorderBrush="#DDD" BorderThickness="1" CornerRadius="10" Padding="15" Margin="0,0,0,15">
                                         <StackPanel>
-                                            <TextBlock Text="加入大厅 (房客)" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                                            <TextBlock x:Name="JoinLobbyHeader" Text="加入大厅 (房客)" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -780,7 +810,7 @@
 
                                     <Border Background="White" BorderBrush="#DDD" BorderThickness="1" CornerRadius="10" Padding="15" Margin="0,0,0,15">
                                         <StackPanel>
-                                            <TextBlock Text="创建大厅 (房主)" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                                            <TextBlock x:Name="CreateLobbyHeader" Text="创建大厅 (房主)" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
                                             <Button x:Name="CreateRoomBtn" Content="创 建 大 厅" Height="35" Click="CreateRoomBtn_Click" Cursor="Hand" Foreground="White" FontWeight="Bold" BorderThickness="0">
                                                 <Button.Style>
                                                     <Style TargetType="Button">
@@ -831,8 +861,8 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="*"/>
                                         </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Text="👥 房间在线玩家" FontSize="16" FontWeight="Bold" Foreground="#333" Margin="0,0,0,5"/>
-                                        <TextBlock Grid.Row="1" Text="(连接后自动探测)" Foreground="Gray" FontSize="12" Margin="0,0,0,15"/>
+                                        <TextBlock x:Name="RoomPlayersTitle" Grid.Row="0" Text="👥 房间在线玩家" FontSize="16" FontWeight="Bold" Foreground="#333" Margin="0,0,0,5"/>
+                                        <TextBlock x:Name="RoomPlayersHint" Grid.Row="1" Text="(连接后自动探测)" Foreground="Gray" FontSize="12" Margin="0,0,0,15"/>
 
                                         <ListBox x:Name="RoomPlayersListBox" Grid.Row="2" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                             <ListBox.ItemTemplate>
@@ -856,9 +886,9 @@
                     </TabItem>
                     <TabItem>
                         <StackPanel Margin="40">
-                            <TextBlock Text="全局设置" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
+                            <TextBlock x:Name="SettingsTitle" Text="全局设置" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
 
-                            <TextBlock Text="下载网络节点 (遇到报错、拉取失败时，请切换节点并重试):" Margin="0,0,0,5" FontWeight="Bold" Foreground="#333"/>
+                            <TextBlock x:Name="SettingsProxyLabel" Text="下载网络节点 (遇到报错、拉取失败时，请切换节点并重试):" Margin="0,0,0,5" FontWeight="Bold" Foreground="#333"/>
                             <ComboBox x:Name="ProxyNodeBox" Margin="0,0,0,30" SelectionChanged="ProxyNodeBox_SelectionChanged">
                                 <ComboBoxItem Content="[国内缓慢] 节点 0：官方直连 (Github 原始服务器)"/>
                                 <ComboBoxItem Content="[国内推荐] 节点 1：GhFast (ghfast.top)"/>
@@ -868,9 +898,9 @@
                                 <ComboBoxItem Content="[国内备用] 节点 5：gh.llkk.cc"/>
                             </ComboBox>
 
-                            <TextBlock Text="默认 Java 路径 (未单独设置版本的实例将使用此 Java):" Margin="0,0,0,5" FontWeight="Bold" Foreground="#333"/>
+                            <TextBlock x:Name="SettingsJavaPathLabel" Text="默认 Java 路径 (未单独设置版本的实例将使用此 Java):" Margin="0,0,0,5" FontWeight="Bold" Foreground="#333"/>
                             <DockPanel Margin="0,0,0,30">
-                                <Button Content="浏览..." Width="80" DockPanel.Dock="Right" Margin="10,0,0,0" Click="BrowseGlobalJavaBtn_Click" FocusVisualStyle="{x:Null}">
+                                <Button x:Name="SettingsBrowseBtn" Content="浏览..." Width="80" DockPanel.Dock="Right" Margin="10,0,0,0" Click="BrowseGlobalJavaBtn_Click" FocusVisualStyle="{x:Null}">
                                     <Button.Resources>
                                         <Style TargetType="Border">
                                             <Setter Property="CornerRadius" Value="3"/>
@@ -898,20 +928,29 @@
                                 </ComboBox>
                             </DockPanel>
 
-                            <TextBlock Text="全局 Java 内存分配 (修改后会覆盖默认参数):" Margin="0,0,0,5" FontWeight="Bold" Foreground="#333"/>
+                            <TextBlock x:Name="SettingsRamLabel" Text="全局 Java 内存分配 (修改后会覆盖默认参数):" Margin="0,0,0,5" FontWeight="Bold" Foreground="#333"/>
                             <DockPanel Margin="0,0,0,30">
                                 <CheckBox x:Name="GlobalAutoRamCheck" Content="自动分配 (推荐)" VerticalAlignment="Center" Checked="GlobalAutoRamCheck_Changed" Unchecked="GlobalAutoRamCheck_Changed"/>
                                 <TextBlock x:Name="GlobalRamText" Text="4096 MB" Width="90" DockPanel.Dock="Right" TextAlignment="Right" VerticalAlignment="Center" Foreground="#1976D2" FontWeight="Bold"/>
                                 <Slider x:Name="GlobalRamSlider" Minimum="1024" Maximum="16384" TickFrequency="512" IsSnapToTickEnabled="True" Value="4096" VerticalAlignment="Center" ValueChanged="GlobalRamSlider_ValueChanged" Margin="15,0,10,0"/>
                             </DockPanel>
+
+                            <TextBlock x:Name="SettingsLanguageLabel" Text="界面语言 (Language):" Margin="0,25,0,5" FontWeight="Bold" Foreground="#333"/>
+                            <ComboBox x:Name="LanguageComboBox" Width="220" Margin="0,0,0,30"
+                                      SelectionChanged="LanguageComboBox_SelectionChanged"
+                                      HorizontalAlignment="Left">
+                                <ComboBoxItem Tag="auto"/>
+                                <ComboBoxItem Tag="zh-CN"/>
+                                <ComboBoxItem Tag="en-US"/>
+                            </ComboBox>
                         </StackPanel>
                     </TabItem>
 
                     <TabItem>
                         <StackPanel Margin="40">
-                            <TextBlock Text="更多" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
+                            <TextBlock x:Name="MoreHeader" Text="更多" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
 
-                            <TextBlock Text="社区资料" FontWeight="Bold" Foreground="#333" Margin="0,0,0,15"/>
+                            <TextBlock x:Name="CommunityResourcesHeader" Text="社区资料" FontWeight="Bold" Foreground="#333" Margin="0,0,0,15"/>
 
                             <Button HorizontalAlignment="Left" Padding="20,10" Background="#2196F3" Foreground="White" BorderThickness="0" Cursor="Hand" Click="OpenWiki_Click" FocusVisualStyle="{x:Null}">
                                 <Button.Resources>
@@ -920,16 +959,16 @@
                                     </Style>
                                 </Button.Resources>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🌐" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="访问 MDT Wiki" FontSize="15" VerticalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="🌐" FontSize="16" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="WikiButtonText" Text="访问 MDT Wiki" FontSize="15" VerticalAlignment="Center" FontWeight="Bold"/>
                                 </StackPanel>
                             </Button>
 
-                            <TextBlock Text="Mindustry 中文社区百科，获取最详尽的模组教程、新手指南与服务器资料。" Foreground="Gray" Margin="0,10,0,25" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="WikiDescriptionText" Text="Mindustry 中文社区百科，获取最详尽的模组教程、新手指南与服务器资料。" Foreground="Gray" Margin="0,10,0,25" TextWrapping="Wrap"/>
 
                             <Separator Background="#EEE" Margin="0,0,0,25"/>
 
-                            <TextBlock Text="支持与购买" FontWeight="Bold" Foreground="#333" Margin="0,0,0,15"/>
+                            <TextBlock x:Name="SupportHeader" Text="支持与购买" FontWeight="Bold" Foreground="#333" Margin="0,0,0,15"/>
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                 <Button Width="150" Height="40" Margin="0,0,15,0" Background="#FA5C5C" Foreground="White" BorderThickness="0" Cursor="Hand" Click="OpenItch_Click" FocusVisualStyle="{x:Null}">
@@ -951,10 +990,17 @@
                                 </Button>
                             </StackPanel>
 
-                            <TextBlock Text="如果你喜欢 Mindustry，请考虑在官方平台购买以支持独立开发者 Anuken！" Foreground="Gray" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="SupportDescriptionText" Text="如果你喜欢 Mindustry，请考虑在官方平台购买以支持独立开发者 Anuken！" Foreground="Gray" TextWrapping="Wrap"/>
                         </StackPanel>
                     </TabItem>
                 </TabControl>
+
+                <!-- 共享子标签页按钮 (下载/模组/蓝图) -->
+                <StackPanel x:Name="SubTabBar" Grid.Row="1" Orientation="Horizontal" Margin="20,10,20,0" Visibility="Collapsed">
+                    <RadioButton x:Name="SubTabDownloadSource" Content="下载源" Style="{StaticResource SubTabButtonStyle}" Tag="1" IsChecked="True" Checked="DownloadSubTab_Checked"/>
+                    <RadioButton x:Name="SubTabModBrowser" Content="模组浏览器" Style="{StaticResource SubTabButtonStyle}" Tag="2" Checked="DownloadSubTab_Checked"/>
+                    <RadioButton x:Name="SubTabSchematics" Content="社区蓝图库" Style="{StaticResource SubTabButtonStyle}" Tag="3" Checked="DownloadSubTab_Checked"/>
+                </StackPanel>
 
                 <ResizeGrip Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,3" Width="14" Height="14" Cursor="SizeNWSE">
                     <ResizeGrip.Opacity>0.5</ResizeGrip.Opacity>
@@ -1034,7 +1080,7 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Text="文件夹列表" Foreground="Gray" Margin="15,15,0,10"/>
+                        <TextBlock x:Name="VersionSelectFolderLabel" Text="文件夹列表" Foreground="Gray" Margin="15,15,0,10"/>
                         <ListBox x:Name="FolderListBox" Grid.Row="1" BorderThickness="0" SelectionChanged="FolderListBox_SelectionChanged" PreviewMouseWheel="SmoothScroll_PreviewMouseWheel">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -1049,7 +1095,7 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                        <Button Grid.Row="2" Content="+ 导入文件夹" Height="40" Background="Transparent" Foreground="#2196F3" Click="AddNewFolder_Click" FocusVisualStyle="{x:Null}"/>
+                        <Button x:Name="AddFolderBtn" Grid.Row="2" Content="+ 导入文件夹" Height="40" Background="Transparent" Foreground="#2196F3" Click="AddNewFolder_Click" FocusVisualStyle="{x:Null}"/>
                     </Grid>
                 </Border>
                 <ListBox x:Name="InstanceListBox" Grid.Column="1" Background="Transparent" BorderThickness="0" Margin="10" SelectionChanged="InstanceListBox_SelectionChanged" PreviewMouseWheel="SmoothScroll_PreviewMouseWheel">
@@ -1065,7 +1111,7 @@
                                         <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Text="{Binding FullPath}" Foreground="Gray" FontSize="12" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" Content="删除" Background="#FFEBEE" Foreground="#D32F2F" BorderThickness="0" Padding="15,5" Cursor="Hand" Click="DeleteInstance_Click" Tag="{Binding}" VerticalAlignment="Center">
+                                    <Button Grid.Column="1" Content="{Binding UI_DeleteText}" Background="#FFEBEE" Foreground="#D32F2F" BorderThickness="0" Padding="15,5" Cursor="Hand" Click="DeleteInstance_Click" Tag="{Binding}" VerticalAlignment="Center">
                                         <Button.Resources>
                                             <Style TargetType="Border">
                                                 <Setter Property="CornerRadius" Value="5"/>
@@ -1110,8 +1156,8 @@
                         <Button x:Name="VSidebarOpenFolderBtn" Content="打开文件夹 ▼" Style="{StaticResource SidebarButtonStyle}" Click="VSidebarOpenFolder_Click">
                             <Button.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="打开 本体文件夹" Click="OpenGameFolder_Click"/>
-                                    <MenuItem Header="打开 数据文件夹" Click="OpenDataFolder_Click"/>
+                                    <MenuItem x:Name="OpenGameFolderItem" Header="打开 本体文件夹" Click="OpenGameFolder_Click"/>
+                                    <MenuItem x:Name="OpenDataFolderItem" Header="打开 数据文件夹" Click="OpenDataFolder_Click"/>
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>
@@ -1120,36 +1166,36 @@
                 <Grid Grid.Column="1" Margin="30">
                     <Border x:Name="VSettingsOverviewPanel" Background="White" CornerRadius="5" Padding="20" Visibility="Collapsed">
                         <StackPanel>
-                            <TextBlock Text="版本概览" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
+                            <TextBlock x:Name="VSettingsOverviewTitle" Text="版本概览" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                                 <Image x:Name="SettingsGameIcon" Width="50" Height="50" Margin="0,0,15,0"/>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock x:Name="OverviewVersionName" FontSize="18" FontWeight="Bold"/>
-                                    <TextBlock Text="Mindustry 独立实例" Foreground="Gray" FontSize="12"/>
+                                    <TextBlock x:Name="VSettingsInstanceTypeLabel" Text="Mindustry 独立实例" Foreground="Gray" FontSize="12"/>
                                 </StackPanel>
                             </StackPanel>
-                            <TextBlock Text="物理路径：" Foreground="Gray" Margin="0,10,0,5"/>
+                            <TextBlock x:Name="VSettingsPathLabel" Text="物理路径：" Foreground="Gray" Margin="0,10,0,5"/>
                             <TextBlock x:Name="OverviewVersionPath" TextWrapping="Wrap" Background="#F8F9FA" Padding="10"/>
                             <Button x:Name="StartRenameBtn" Content="修改名称" Width="100" HorizontalAlignment="Left" Click="StartRename_Click" Margin="0,10,0,0" FocusVisualStyle="{x:Null}"/>
                             <StackPanel x:Name="RenamePanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,10,0,0">
                                 <TextBox x:Name="RenameTextBox" Width="200" Padding="5"/>
-                                <Button Content="确认" Margin="10,0,0,0" Padding="15,5" Background="#4CAF50" Foreground="White" BorderThickness="0" Click="ConfirmRename_Click" FocusVisualStyle="{x:Null}"/>
-                                <Button Content="取消" Margin="5,0,0,0" Padding="15,5" Click="CancelRename_Click" FocusVisualStyle="{x:Null}"/>
+                                <Button x:Name="ConfirmRenameBtn" Content="确认" Margin="10,0,0,0" Padding="15,5" Background="#4CAF50" Foreground="White" BorderThickness="0" Click="ConfirmRename_Click" FocusVisualStyle="{x:Null}"/>
+                                <Button x:Name="CancelRenameBtn" Content="取消" Margin="5,0,0,0" Padding="15,5" Click="CancelRename_Click" FocusVisualStyle="{x:Null}"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
                     <Border x:Name="VSettingsConfigPanel" Background="White" CornerRadius="5" Padding="20">
                         <StackPanel>
-                            <TextBlock Text="启动选项" FontSize="16" FontWeight="Bold" Foreground="#2196F3" Margin="0,0,0,15"/>
-                            <TextBlock Text="版本隔离 (开启后存档/Mod独立存放):" Margin="0,0,0,5"/>
+                            <TextBlock x:Name="VSettingsConfigTitle" Text="启动选项" FontSize="16" FontWeight="Bold" Foreground="#2196F3" Margin="0,0,0,15"/>
+                            <TextBlock x:Name="VSettingsIsolationLabel" Text="版本隔离 (开启后存档/Mod独立存放):" Margin="0,0,0,5"/>
                             <ComboBox x:Name="VSettingsIsolationBox" Margin="0,0,0,15">
                                 <ComboBoxItem Content="开启 (推荐)"/>
                                 <ComboBoxItem Content="关闭"/>
                             </ComboBox>
 
-                            <TextBlock Text="自定义 Java 路径:" Margin="0,0,0,5"/>
+                            <TextBlock x:Name="VSettingsJavaLabel" Text="自定义 Java 路径:" Margin="0,0,0,5"/>
                             <DockPanel Margin="0,0,0,15">
-                                <Button Content="浏览" Width="60" DockPanel.Dock="Right" Margin="5,0,0,0" Click="BrowseVersionJava_Click" FocusVisualStyle="{x:Null}">
+                                <Button x:Name="VSettingsBrowseBtn" Content="浏览" Width="60" DockPanel.Dock="Right" Margin="5,0,0,0" Click="BrowseVersionJava_Click" FocusVisualStyle="{x:Null}">
                                     <Button.Resources>
                                         <Style TargetType="Border">
                                             <Setter Property="CornerRadius" Value="3"/>
@@ -1177,14 +1223,14 @@
                                 </ComboBox>
                             </DockPanel>
 
-                            <TextBlock Text="实例 Java 内存分配:" Margin="0,0,0,5"/>
+                            <TextBlock x:Name="VSettingsInstanceRamLabel" Text="实例 Java 内存分配:" Margin="0,0,0,5"/>
                             <DockPanel Margin="0,0,0,15">
                                 <CheckBox x:Name="VersionAutoRamCheck" Content="跟随自动分配" VerticalAlignment="Center" Checked="VersionAutoRamCheck_Changed" Unchecked="VersionAutoRamCheck_Changed"/>
                                 <TextBlock x:Name="VSettingsRamText" Text="4096 MB" Width="90" DockPanel.Dock="Right" TextAlignment="Right" VerticalAlignment="Center" Foreground="#1976D2" FontWeight="Bold"/>
                                 <Slider x:Name="VSettingsRamSlider" Minimum="1024" Maximum="16384" TickFrequency="512" IsSnapToTickEnabled="True" Value="4096" VerticalAlignment="Center" ValueChanged="VSettingsRamSlider_ValueChanged" Margin="15,0,10,0"/>
                             </DockPanel>
 
-                            <TextBlock Text="自定义 JVM 启动参数 (高级选项):" Margin="0,0,0,5"/>
+                            <TextBlock x:Name="VSettingsJvmLabel" Text="自定义 JVM 启动参数 (高级选项):" Margin="0,0,0,5"/>
                             <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="5" Margin="0,0,0,15" Background="White">
                                 <TextBox x:Name="VSettingsJvmArgsBox" Padding="8,6" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="13"/>
                             </Border>
@@ -1197,15 +1243,15 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <DockPanel Margin="0,0,0,10">
-                            <TextBlock Text="本地 Mod 列表" FontSize="18" FontWeight="Bold"/>
-                            <Button Content="刷新" HorizontalAlignment="Right" Click="RefreshMods_Click" Padding="10,5" FocusVisualStyle="{x:Null}"/>
+                            <TextBlock x:Name="LocalModTitle" Text="本地 Mod 列表" FontSize="18" FontWeight="Bold"/>
+                            <Button x:Name="LocalModRefreshBtn" Content="刷新" HorizontalAlignment="Right" Click="RefreshMods_Click" Padding="10,5" FocusVisualStyle="{x:Null}"/>
                         </DockPanel>
                         <ListBox x:Name="ModListBox" Grid.Row="1" Background="White" BorderThickness="0" PreviewMouseWheel="SmoothScroll_PreviewMouseWheel">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="#EEE" BorderThickness="0,0,0,1" Padding="10">
                                         <DockPanel>
-                                            <Button Content="删除" DockPanel.Dock="Right" Background="#FFEBEE" Foreground="#D32F2F" BorderThickness="0" Click="DeleteMod_Click" Tag="{Binding FullPath}" Padding="15,5" Cursor="Hand" FocusVisualStyle="{x:Null}" VerticalAlignment="Center"/>
+                                            <Button Content="{Binding UI_DeleteText}" DockPanel.Dock="Right" Background="#FFEBEE" Foreground="#D32F2F" BorderThickness="0" Click="DeleteMod_Click" Tag="{Binding FullPath}" Padding="15,5" Cursor="Hand" FocusVisualStyle="{x:Null}" VerticalAlignment="Center"/>
                                             <Border Width="48" Height="48" CornerRadius="5" Margin="0,0,15,0" VerticalAlignment="Center" Background="#F5F5F5">
                                                 <Grid>
                                                     <TextBlock Text="📦" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#CCC">
@@ -1256,15 +1302,15 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <DockPanel Margin="0,0,0,10">
-                            <TextBlock Text="本地 蓝图 列表" FontSize="18" FontWeight="Bold"/>
-                            <Button Content="刷新" HorizontalAlignment="Right" Click="RefreshSchematics_Click" Padding="10,5" FocusVisualStyle="{x:Null}"/>
+                            <TextBlock x:Name="LocalSchematicTitle" Text="本地 蓝图 列表" FontSize="18" FontWeight="Bold"/>
+                            <Button x:Name="LocalSchematicRefreshBtn" Content="刷新" HorizontalAlignment="Right" Click="RefreshSchematics_Click" Padding="10,5" FocusVisualStyle="{x:Null}"/>
                         </DockPanel>
                         <ListBox x:Name="LocalSchematicListBox" Grid.Row="1" Background="White" BorderThickness="0" PreviewMouseWheel="SmoothScroll_PreviewMouseWheel">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="#EEE" BorderThickness="0,0,0,1" Padding="10">
                                         <DockPanel>
-                                            <Button Content="删除" DockPanel.Dock="Right" Background="#FFEBEE" Foreground="#D32F2F" BorderThickness="0" Click="DeleteSchematic_Click" Tag="{Binding FullPath}" Padding="15,5" Cursor="Hand" FocusVisualStyle="{x:Null}" VerticalAlignment="Center"/>
+                                            <Button Content="{Binding UI_DeleteText}" DockPanel.Dock="Right" Background="#FFEBEE" Foreground="#D32F2F" BorderThickness="0" Click="DeleteSchematic_Click" Tag="{Binding FullPath}" Padding="15,5" Cursor="Hand" FocusVisualStyle="{x:Null}" VerticalAlignment="Center"/>
                                             <TextBlock Text="📐" FontSize="20" Margin="0,0,15,0" VerticalAlignment="Center"/>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding FileName}" FontWeight="Bold" FontSize="15" Foreground="#333" TextTrimming="CharacterEllipsis"/>
@@ -1289,10 +1335,10 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Text="存档管理与高级设置" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
+                            <TextBlock x:Name="SaveDataTitle" Grid.Row="0" Text="存档管理与高级设置" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
 
                             <DockPanel Grid.Row="1" Margin="0,0,0,5">
-                                <TextBlock Text="💾 本地地图存档 (.msav)（目前屁用没有）" FontSize="16" FontWeight="Bold" Foreground="#333" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="SaveDataSectionTitle" Text="💾 本地地图存档 (.msav)（目前屁用没有）" FontSize="16" FontWeight="Bold" Foreground="#333" VerticalAlignment="Center"/>
                                 <Button x:Name="RefreshSavesBtn" Content="🔄 刷新并解析" Height="30" Padding="15,0" HorizontalAlignment="Right" DockPanel.Dock="Right" Click="RefreshSavesBtn_Click" Cursor="Hand" Background="#2196F3" Foreground="White" BorderThickness="0" FocusVisualStyle="{x:Null}">
                                     <Button.Resources>
                                         <Style TargetType="Border">
@@ -1350,7 +1396,7 @@
                                 </ComboBox>
 
                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10,0,0,0">
-                                    <TextBlock Text="🔍 搜索:" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray"/>
+                                    <TextBlock x:Name="SettingsSearchLabel" Text="🔍 搜索:" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Gray"/>
                                     <Border BorderBrush="#CCC" BorderThickness="1" CornerRadius="3" Background="White" Width="180">
                                         <TextBox x:Name="SettingsSearchBox" VerticalContentAlignment="Center" Padding="5" BorderThickness="0" Background="Transparent" TextChanged="SettingsSearchBox_TextChanged"/>
                                     </Border>
@@ -1440,7 +1486,7 @@
                         <ProgressBar x:Name="ModInstallProgressBar" Height="10"/>
                     </StackPanel>
                     <DockPanel Grid.Row="4" LastChildFill="False">
-                        <Button Content="取消" Width="100" Height="35" Click="CancelModInstall_Click" FocusVisualStyle="{x:Null}">
+                        <Button x:Name="ModInstallCancelBtn" Content="取消" Width="100" Height="35" Click="CancelModInstall_Click" FocusVisualStyle="{x:Null}">
                             <Button.Resources>
                                 <Style TargetType="Border">
                                     <Setter Property="CornerRadius" Value="5"/>
@@ -1487,7 +1533,7 @@
                         </ListBox>
                     </StackPanel>
                     <DockPanel Grid.Row="2" LastChildFill="False">
-                        <Button Content="取消" Width="100" Height="35" Click="CancelSchematicInstall_Click" FocusVisualStyle="{x:Null}">
+                        <Button x:Name="SchematicInstallCancelBtn" Content="取消" Width="100" Height="35" Click="CancelSchematicInstall_Click" FocusVisualStyle="{x:Null}">
                             <Button.Resources>
                                 <Style TargetType="Border">
                                     <Setter Property="CornerRadius" Value="5"/>
@@ -1538,7 +1584,7 @@
                             </Button.Resources>
                         </Button>
 
-                        <Button Content="关闭" DockPanel.Dock="Right" Width="100" Height="35" Background="#E0E0E0" Foreground="#333" BorderThickness="0" Click="CloseReleaseNotes_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
+                        <Button x:Name="ReleaseNotesCloseBtn" Content="关闭" DockPanel.Dock="Right" Width="100" Height="35" Background="#E0E0E0" Foreground="#333" BorderThickness="0" Click="CloseReleaseNotes_Click" FocusVisualStyle="{x:Null}" Cursor="Hand">
                             <Button.Resources>
                                 <Style TargetType="Border">
                                     <Setter Property="CornerRadius" Value="5"/>

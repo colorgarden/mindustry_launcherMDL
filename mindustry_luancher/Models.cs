@@ -11,6 +11,7 @@ public class AppConfig
     public int ProxyNodeIndex { get; set; } = 1;
     public int GlobalRamMB { get; set; } = 4096;
     public bool GlobalUseAutoRam { get; set; } = true;
+    public string Language { get; set; } = "";
     public string PlayerNickname { get; set; } = "Mindustry玩家";
     public double WindowWidth { get; set; }
     public double WindowHeight { get; set; }
@@ -32,6 +33,7 @@ public class GameInstanceInfo
 {
     public string Name { get; set; } = "";
     public string FullPath { get; set; } = "";
+    [JsonIgnore] public string UI_DeleteText => L.Get("version.delete");
 }
 
 // ========== Mod 相关 ==========
@@ -47,6 +49,7 @@ public class ModInfo
     public System.Windows.Media.ImageSource? IconImage { get; set; }
     public string UI_Name => string.IsNullOrEmpty(DisplayName) ? FileName : DisplayName;
     public string UI_Author => string.IsNullOrEmpty(Author) ? "未知作者" : $"作者: {Author}";
+    [JsonIgnore] public string UI_DeleteText => L.Get("mods.delete");
 }
 
 public class ModRegistryEntry
@@ -58,6 +61,8 @@ public class ModRegistryEntry
     [JsonPropertyName("stars")] public int Stars { get; set; }
     [JsonIgnore] public string AuthorFormatted => $"作者: {Author}";
     [JsonIgnore] public string StarsFormatted => $"★ {Stars}";
+    [JsonIgnore] public string UI_InstallText => L.Get("mods.install");
+    [JsonIgnore] public string UI_RightClickHint => L.Get("mods.right_click_hint");
     [JsonIgnore] public string IconUrl => UrlHelper.Format($"https://raw.githubusercontent.com/{Repo}/master/icon.png");
 }
 
@@ -67,6 +72,9 @@ public class GitHubRelease
     [JsonPropertyName("tag_name")] public string TagName { get; set; } = "";
     [JsonPropertyName("body")] public string? Body { get; set; }
     [JsonPropertyName("assets")] public List<GitHubAsset>? Assets { get; set; }
+    [JsonIgnore] public string UI_DownloadText => L.Get("download.download");
+    [JsonIgnore] public string UI_AvailableHint => L.Get("download.available_versions");
+    [JsonIgnore] public string UI_RightClickHint => L.Get("mods.right_click_hint");
     public override string ToString() => TagName;
 }
 
@@ -93,6 +101,7 @@ public record SchematicEntry(string RealName, string Description, string FileNam
 {
     public string UI_Name => string.IsNullOrEmpty(RealName) ? FileName : RealName;
     public string UI_Description => string.IsNullOrEmpty(Description) ? "暂无描述" : Description;
+    [JsonIgnore] public string UI_DownloadText => L.Get("schematics.download");
 }
 
 // ========== Java ==========

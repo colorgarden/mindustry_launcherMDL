@@ -28,4 +28,12 @@
 	  <Resource Include="Assets\steam_logo.png" />
 	  <Resource Include="Fonts\font.ttf" />
 	</ItemGroup>
+	<ItemGroup>
+	  <None Update="Lang\zh-CN.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Lang\en-US.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
 </Project>

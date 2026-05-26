@@ -43,7 +43,7 @@ namespace mindustry_launcher
                 string binPath = GetSettingsBinPath();
                 if (string.IsNullOrEmpty(binPath))
                 {
-                    ShowDialog("提示", "请先选择版本！");
+                    ShowDialog(L.Get("dialog.info"), L.Get("status.select_version_first"));
                     return;
                 }
 
@@ -54,7 +54,7 @@ namespace mindustry_launcher
                 // 3. 检查目录是否存在
                 if (!Directory.Exists(savesDir))
                 {
-                    ShowDialog("提示", $"存档目录不存在：\n{savesDir}");
+                    ShowDialog(L.Get("dialog.info"), L.T("status.save_dir_missing", savesDir));
                     return;
                 }
 
@@ -84,7 +84,7 @@ namespace mindustry_launcher
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"刷新失败: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("status.saves_refresh_error", ex.Message), DialogIcon.Error);
             }
         }
         // 核心深度解析逻辑
@@ -105,17 +105,17 @@ namespace mindustry_launcher
                     if (parts.Length >= 3)
                     {
                         string planet = char.ToUpper(parts[1][0]) + parts[1].Substring(1);
-                        processedName = $"{planet} - 区块 {parts[2]}";
+                        processedName = L.T("save.region_format", planet, parts[2]);
                     }
                 }
                 else if (nameNoExt.Replace("-backup", "") == "0")
                 {
-                    processedName = "零号地区 (Ground Zero)";
+                    processedName = L.Get("model.zero_region");
                 }
 
-                meta.MapName = processedName + (nameNoExt.EndsWith("backup") ? " (备份)" : "");
-                meta.Author = "官方战役";
-                meta.Wave = "高压压缩";
+                meta.MapName = processedName + (nameNoExt.EndsWith("backup") ? L.Get("save.is_backup") : "");
+                meta.Author = L.Get("save.author.official");
+                meta.Wave = L.Get("save.wave.compressed");
                 return meta;
             }
 
@@ -133,15 +133,15 @@ namespace mindustry_launcher
                             byte[] verBytes = reader.ReadBytes(4);
                             Array.Reverse(verBytes);
                             meta.Version = "v" + BitConverter.ToInt32(verBytes, 0).ToString();
-                            meta.Author = "本地玩家";
-                            meta.Wave = "点击查看";
+                            meta.Author = L.Get("save.author.local");
+                            meta.Wave = L.Get("save.wave.click_view");
                         }
                     }
                 }
             }
             catch
             {
-                meta.Author = "损坏/未知";
+                meta.Author = L.Get("save.author.corrupt");
             }
 
             return meta;
@@ -151,15 +151,15 @@ namespace mindustry_launcher
             // 1. 检查是否设置了版本存储目录
             if (_config.ManagedFolders == null || _config.ManagedFolders.Count == 0)
             {
-                ShowDialog("提示", "请先在设置中添加一个游戏存储目录！");
+                ShowDialog(L.Get("dialog.info"), L.Get("status.no_managed_folder"));
                 return;
             }
 
             // 2. 呼出资源管理器选择 jar 文件
             var openFileDialog = new OpenFileDialog
             {
-                Filter = "Mindustry Jar 文件 (*.jar)|*.jar",
-                Title = "选择要导入的 Mindustry.jar 文件"
+                Filter = $"{L.Get("dialog.jar_filter")} (*.jar)|*.jar",
+                Title = L.Get("dialog.select_jar_title")
             };
 
             if (openFileDialog.ShowDialog() == true)
@@ -175,7 +175,7 @@ namespace mindustry_launcher
                 {
                     if (versionName.Contains(c))
                     {
-                        ShowDialog("错误", "版本名称包含非法字符（如 \\ / : * ? \" < > |），请换一个名称！", DialogIcon.Error);
+                        ShowDialog(L.Get("dialog.error"), L.Get("dialog.import_illegal_chars"), DialogIcon.Error);
                         return;
                     }
                 }
@@ -186,7 +186,7 @@ namespace mindustry_launcher
 
                 if (Directory.Exists(targetDir))
                 {
-                    ShowDialog("提示", "该版本名称已存在，请换一个名字！");
+                    ShowDialog(L.Get("dialog.info"), L.Get("dialog.import_exists"));
                     return;
                 }
 
@@ -197,14 +197,14 @@ namespace mindustry_launcher
                     // 核心要求：将任意名字的 jar 复制过去并重命名为 Mindustry.jar
                     File.Copy(sourceFilePath, Path.Combine(targetDir, "Mindustry.jar"), true);
 
-                    ShowDialog("成功", $"成功导入版本：{versionName}", DialogIcon.Info);
+                    ShowDialog(L.Get("dialog.success"), L.T("dialog.import_success", versionName), DialogIcon.Info);
 
                     // 👇 刷新主 UI 和版本列表，这里的 UpdateMainUI() 是你代码中自带的方法
                     UpdateMainUI();
                 }
                 catch (Exception ex)
                 {
-                    ShowDialog("错误", $"导入失败: {ex.Message}", DialogIcon.Error);
+                    ShowDialog(L.Get("dialog.error"), L.T("dialog.import_error", ex.Message), DialogIcon.Error);
                 }
             }
         }
@@ -218,7 +218,7 @@ namespace mindustry_launcher
             {
                 Width = 350,
                 Height = 180,
-                Title = "输入版本名称",
+                Title = L.Get("dialog.import_prompt_title"),
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Owner = this, // 模态窗口，跟随主窗口
                 ResizeMode = ResizeMode.NoResize,
@@ -227,14 +227,14 @@ namespace mindustry_launcher
             };
 
             StackPanel panel = new StackPanel() { Margin = new Thickness(20) };
-            panel.Children.Add(new TextBlock() { Text = "请为导入的版本起一个专属名称：", FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 10) });
+            panel.Children.Add(new TextBlock() { Text = L.Get("dialog.import_prompt_msg"), FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 10) });
 
             TextBox inputBox = new TextBox() { Height = 30, VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(5, 0, 5, 0) };
             panel.Children.Add(inputBox);
 
             Button confirmBtn = new Button()
             {
-                Content = "确定导入",
+                Content = L.Get("dialog.import_prompt_confirm"),
                 Width = 90,
                 Height = 32,
                 Margin = new Thickness(0, 15, 0, 0),
@@ -318,6 +318,16 @@ namespace mindustry_launcher
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             LoadConfig();
+
+            // 语言初始化
+            if (string.IsNullOrEmpty(_config.Language))
+            {
+                _config.Language = L.AutoDetect();
+                SaveConfig();
+            }
+            L.LoadLanguage(_config.Language);
+            L.LanguageChanged += () => Dispatcher.Invoke(RefreshAllUI);
+
             GlobalJavaComboBox.Text = _config.GlobalJavaPath;
             PlayerNameBox.Text = _config.PlayerNickname;
             int maxRam = (HardwareInfo.GetTotalPhysicalMemoryMB() / 512) * 512;
@@ -353,6 +363,8 @@ namespace mindustry_launcher
             }
             catch { }
 
+            RefreshAllUI();
+
             Task.Run(() =>
             {
                 var javas = JavaScanner.Scan();
@@ -385,7 +397,7 @@ namespace mindustry_launcher
             {
                 int autoRam = CalculateSmartRam();
                 GlobalRamSlider.Value = autoRam;
-                GlobalRamText.Text = $"{autoRam} MB (自动)";
+                GlobalRamText.Text = L.T("settings.auto_ram_text", autoRam);
             }
             else
             {
@@ -409,7 +421,7 @@ namespace mindustry_launcher
             {
                 int targetRam = _config.GlobalUseAutoRam ? CalculateSmartRam() : _config.GlobalRamMB;
                 VSettingsRamSlider.Value = targetRam;
-                VSettingsRamText.Text = $"{targetRam} MB (跟随全局)";
+                VSettingsRamText.Text = L.T("vsettings.follow_auto_text", targetRam);
             }
             else
             {
@@ -537,7 +549,7 @@ namespace mindustry_launcher
             string myName = PlayerNameBox.Text.Trim();
             if (string.IsNullOrEmpty(myName))
             {
-                ShowDialog("提示", "起个名字吧！");
+                ShowDialog(L.Get("dialog.info"), L.Get("multiplayer.name_required"));
                 return;
             }
 
@@ -569,13 +581,13 @@ namespace mindustry_launcher
 
             if (string.IsNullOrEmpty(roomCode) || string.IsNullOrEmpty(myName))
             {
-                ShowDialog("提示", "房号和名字都得写！");
+                ShowDialog(L.Get("dialog.info"), L.Get("multiplayer.room_and_name_required"));
                 return;
             }
 
             if (roomCode.Length != 6 || !int.TryParse(roomCode, out _))
             {
-                ShowDialog("提示", "无效的房号！房间号必须是 6 位纯数字。");
+                ShowDialog(L.Get("dialog.info"), L.Get("multiplayer.invalid_room"));
                 return;
             }
 
@@ -612,14 +624,14 @@ namespace mindustry_launcher
 
                     if (isHost)
                     {
-                        CreateRoomBtn.Content = "⏹ 解散大厅";
+                        CreateRoomBtn.Content = L.Get("multiplayer.disband");
                         CreateRoomBtn.Background = redBrush; // 直接在代码里染红，绝对有效！
                         CreateRoomBtn.Tag = "Locked";        // 上锁，掐断 XAML 的悬停变绿功能
                         JoinRoomBtn.IsEnabled = false;       // 触发灰化
                     }
                     else
                     {
-                        JoinRoomBtn.Content = "⏹ 退出大厅";
+                        JoinRoomBtn.Content = L.Get("multiplayer.exit");
                         JoinRoomBtn.Background = redBrush;   // 直接在代码里染红，绝对有效！
                         JoinRoomBtn.Tag = "Locked";          // 上锁，掐断 XAML 的悬停变蓝功能
                         CreateRoomBtn.IsEnabled = false;     // 触发灰化
@@ -630,13 +642,13 @@ namespace mindustry_launcher
                     {
                         _easyTierProcess = null;
                         StopUdpDiscovery();
-                        MyVirtualIpBox.Text = "尚未连接";
+                        MyVirtualIpBox.Text = L.Get("multiplayer.not_connected");
 
-                        CreateRoomBtn.Content = "创 建 大 厅";
+                        CreateRoomBtn.Content = L.Get("multiplayer.create");
                         CreateRoomBtn.ClearValue(Button.BackgroundProperty);
                         CreateRoomBtn.Tag = null;
 
-                        JoinRoomBtn.Content = "加 入";
+                        JoinRoomBtn.Content = L.Get("multiplayer.join");
                         JoinRoomBtn.ClearValue(Button.BackgroundProperty);
                         JoinRoomBtn.Tag = null;
 
@@ -645,7 +657,7 @@ namespace mindustry_launcher
                     });
                 }
             }
-            catch { ShowDialog("错误", "启动失败，请检查网络或权限。", DialogIcon.Error); }
+            catch { ShowDialog(L.Get("dialog.error"), L.Get("multiplayer.startup_error"), DialogIcon.Error); }
         }
         // --- 修改部分 ---
         private void KillEasyTierProcess()
@@ -733,6 +745,7 @@ namespace mindustry_launcher
             SchematicBrowserListBox.IsEnabled = !isD;
             if (RbSchemMinRi2 != null) RbSchemMinRi2.IsEnabled = !isD;
             if (RbSchemDesignIt != null) RbSchemDesignIt.IsEnabled = !isD;
+            if (RbSchemDesignIt != null) RbSchemDesignIt.IsEnabled = !isD;
         }
 
         private void SwitchTab(int idx)
@@ -741,29 +754,24 @@ namespace mindustry_launcher
             var d = new SolidColorBrush(Color.FromRgb(85, 85, 85));
             var a = new SolidColorBrush(Color.FromRgb(33, 150, 243));
 
-            // 把所有导航按钮都恢复默认颜色 (加入了 NavMultiplayerBtn)
             NavLaunchBtn.Foreground = d;
             NavDownloadBtn.Foreground = d;
-            NavModBrowserBtn.Foreground = d;
-            NavSchematicsBtn.Foreground = d;
             NavMultiplayerBtn.Foreground = d;
             NavSettingsBtn.Foreground = d;
             NavMoreBtn.Foreground = d;
 
             if (idx == 0)
                 NavLaunchBtn.Foreground = a;
-            else if (idx == 1)
+            else if (idx == 1 || idx == 2 || idx == 3)
                 NavDownloadBtn.Foreground = a;
-            else if (idx == 2)
-                NavModBrowserBtn.Foreground = a;
-            else if (idx == 3)
-                NavSchematicsBtn.Foreground = a;
             else if (idx == 4)
                 NavMultiplayerBtn.Foreground = a;
             else if (idx == 5)
                 NavSettingsBtn.Foreground = a;
             else if (idx == 6)
                 NavMoreBtn.Foreground = a;
+
+            SubTabBar.Visibility = (idx >= 1 && idx <= 3) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void SmoothScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -841,24 +849,23 @@ namespace mindustry_launcher
 
         private void NavDownload_Click(object sender, RoutedEventArgs e)
         {
+            SubTabDownloadSource.IsChecked = true;
             SwitchTab(1);
         }
 
-        private async void NavModBrowser_Click(object sender, RoutedEventArgs e)
+        private async void DownloadSubTab_Checked(object sender, RoutedEventArgs e)
         {
-            SwitchTab(2);
-            if (_allOnlineMods.Count == 0)
-                await FetchModRegistryAsync();
-        }
-
-        private void NavSchematics_Click(object sender, RoutedEventArgs e)
-        {
-            SwitchTab(3);
-            if (_allOnlineSchematics.Count == 0)
+            if (sender is RadioButton rb && rb.Tag is string tagStr && int.TryParse(tagStr, out int idx))
             {
-                string cachePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache", $"{_currentSchematicRepo.Replace("/", "_")}.zip");
-                if (File.Exists(cachePath))
-                    _ = FetchSchematicsAsync(false);
+                SwitchTab(idx);
+                if (idx == 2 && _allOnlineMods.Count == 0)
+                    await FetchModRegistryAsync();
+                else if (idx == 3 && _allOnlineSchematics.Count == 0)
+                {
+                    string cachePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache", $"{_currentSchematicRepo.Replace("/", "_")}.zip");
+                    if (File.Exists(cachePath))
+                        _ = FetchSchematicsAsync(false);
+                }
             }
         }
 
@@ -869,7 +876,6 @@ namespace mindustry_launcher
             _ = CheckAndDownloadEasyTierAsync(false);
         }
 
-        // 注意：这两个的索引更新了！
         private void NavSettings_Click(object sender, RoutedEventArgs e)
         {
             SwitchTab(5);
@@ -913,11 +919,11 @@ namespace mindustry_launcher
             // 缓存拦截：如果不强制下载，且通过智能扫描找到了 exe，直接秒进就绪！绝对不重下！
             if (!forceDownload && !string.IsNullOrEmpty(GetEasyTierExePath()))
             {
-                EasyTierStatusText.Text = "EasyTier 组件已缓存就绪，可以开始联机";
+                EasyTierStatusText.Text = L.Get("multiplayer.cached_ready");
                 return;
             }
 
-            EasyTierStatusText.Text = "正在连接 GitHub 获取最新 EasyTier 版本...";
+            EasyTierStatusText.Text = L.Get("easytier.connecting_github");
             EasyTierProgressBar.Visibility = Visibility.Visible;
             EasyTierProgressBar.Value = 0;
 
@@ -925,27 +931,27 @@ namespace mindustry_launcher
             {
                 var rel = await _http.GetFromJsonAsync<GitHubRelease>("https://api.github.com/repos/EasyTier/EasyTier/releases/latest");
                 var asset = rel?.Assets?.FirstOrDefault(a => a.Name.Contains("windows-x86_64") && a.Name.EndsWith(".zip"));
-                if (asset == null) { EasyTierStatusText.Text = "未找到适用的 Windows 版本。"; return; }
+                if (asset == null) { EasyTierStatusText.Text = L.Get("easytier.no_windows_version"); return; }
 
                 System.IO.Directory.CreateDirectory(dir);
                 string zipPath = System.IO.Path.Combine(dir, asset.Name);
 
-                EasyTierStatusText.Text = "正在使用加速节点下载底层组件...";
+                EasyTierStatusText.Text = L.Get("easytier.downloading");
                 await DownloadFileAsync(UrlHelper.Format(asset.BrowserDownloadUrl), zipPath, new Progress<double>(p => EasyTierProgressBar.Value = p));
 
-                EasyTierStatusText.Text = "正在解压安装...";
+                EasyTierStatusText.Text = L.Get("easytier.extracting");
                 System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, dir, true);
                 System.IO.File.Delete(zipPath); // 下完清理垃圾
 
-                EasyTierStatusText.Text = "EasyTier 安装并缓存成功！准备就绪。";
+                EasyTierStatusText.Text = L.Get("easytier.installed");
             }
             catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
             {
-                EasyTierStatusText.Text = "下载失败: 节点拒绝访问(403)，请去设置页切换下载节点！";
+                EasyTierStatusText.Text = L.Get("easytier.download_error");
             }
             catch (Exception ex)
             {
-                EasyTierStatusText.Text = "下载失败: " + ex.Message;
+                EasyTierStatusText.Text = L.T("easytier.generic_error", ex.Message);
             }
             finally
             {
@@ -1072,21 +1078,297 @@ namespace mindustry_launcher
         {
             if (_currentInstance == null)
             {
-                CurrentLaunchVersionText.Text = "未选择版本，请点击下方选择";
+                CurrentLaunchVersionText.Text = L.Get("launch.no_version_hint");
                 LaunchBtn.IsEnabled = false;
             }
             else
             {
-                // 核心修复：如果当前选中的实例正在运行，按钮变灰；否则允许启动
                 if (_runningInstancePaths.Contains(_currentInstance.FullPath))
                 {
-                    CurrentLaunchVersionText.Text = "该实例正在运行中...";
+                    CurrentLaunchVersionText.Text = L.Get("launch.running");
                     LaunchBtn.IsEnabled = false;
                 }
                 else
                 {
                     CurrentLaunchVersionText.Text = _currentInstance.Name;
                     LaunchBtn.IsEnabled = true;
+                }
+            }
+        }
+
+        private void RefreshAllUI()
+        {
+            this.Title = L.Get("app.title");
+            RefreshNavigationUI();
+            RefreshLaunchUI();
+            RefreshDownloadUI();
+            RefreshModBrowserUI();
+            RefreshSchematicUI();
+            RefreshMultiplayerUI();
+            RefreshSettingsUI();
+            RefreshVersionSelectUI();
+            RefreshMoreUI();
+            RefreshDialogButtons();
+            RefreshSaveDataUI();
+            RefreshDataGridHeaders();
+            RefreshDataTemplateListBoxes();
+            UpdateMainUI();
+        }
+
+        private void RefreshDataTemplateListBoxes()
+        {
+            RebindListBox(ModBrowserListBox);
+            RebindListBox(SchematicBrowserListBox);
+            RebindListBox(RemoteVersionListBox);
+            RebindListBox(InstanceListBox);
+            RebindListBox(ModListBox);
+            RebindListBox(LocalSchematicListBox);
+        }
+
+        private static void RebindListBox(ListBox lb)
+        {
+            if (lb.ItemsSource != null)
+            {
+                var src = lb.ItemsSource;
+                lb.ItemsSource = null;
+                lb.ItemsSource = src;
+            }
+        }
+
+        private static void SetNavText(Button btn, string text)
+        {
+            if (btn.Content is StackPanel sp)
+            {
+                for (int i = sp.Children.Count - 1; i >= 0; i--)
+                {
+                    if (sp.Children[i] is TextBlock tb) { tb.Text = text; break; }
+                }
+            }
+        }
+
+        private void RefreshNavigationUI()
+        {
+            SetNavText(NavLaunchBtn, L.Get("nav.launch"));
+            SetNavText(NavDownloadBtn, L.Get("nav.download"));
+            SetNavText(NavMultiplayerBtn, L.Get("nav.multiplayer"));
+            SetNavText(NavSettingsBtn, L.Get("nav.settings"));
+            SetNavText(NavMoreBtn, L.Get("nav.more"));
+        }
+
+        private void RefreshLaunchUI()
+        {
+            GameNameText.Text = "Mindustry";
+            LaunchGameText.Text = L.Get("launch.start_game");
+            VersionSelectBtn.Content = L.Get("launch.version_select");
+            VersionSettingsBtn.Content = L.Get("launch.version_settings");
+            WelcomeText.Text = L.Get("launch.welcome");
+        }
+
+        private void RefreshDownloadUI()
+        {
+            SubTabDownloadSource.Content = L.Get("download.source");
+            SubTabModBrowser.Content = L.Get("nav.mods");
+            SubTabSchematics.Content = L.Get("nav.schematics");
+            DownloadSourceLabel.Text = L.Get("download.source");
+            RbOfficial.Content = L.Get("download.official");
+            RbX.Content = L.Get("download.x_client");
+            RbFoo.Content = L.Get("download.foo_client");
+            DownloadSourceTitle.Text = L.T("download.source_with_name",
+                RbOfficial.IsChecked == true ? L.Get("download.official")
+                : RbX.IsChecked == true ? L.Get("download.x_client")
+                : L.Get("download.foo_client"));
+            RemoteVersionLoadingText.Text = L.Get("download.fetching");
+        }
+
+        private void RefreshModBrowserUI()
+        {
+            ModBrowserTitle.Text = L.Get("mods.browser_title");
+            ModBrowserLoadingText.Text = L.Get("mods.fetching");
+            ModSearchLabel.Text = L.Get("search.label");
+            ModBrowserRefreshBtn.Content = L.Get("mods.refresh");
+            ConfirmModInstallBtn.Content = L.Get("mods.install_start");
+        }
+
+        private void RefreshSchematicUI()
+        {
+            SchematicSourceLabel.Text = L.Get("nav.schematics");
+            RbSchemMinRi2.Content = L.Get("schematics.source_minri");
+            RbSchemDesignIt.Content = L.Get("schematics.source_designit");
+            SchematicBrowserLoadingText.Text = L.Get("schematics.parsing_status");
+            SchematicSearchLabel.Text = L.Get("search.label");
+            SchematicRefreshBtn.Content = L.Get("schematics.force_refresh");
+            FetchSchematicBtn.Content = L.Get("schematics.fetch");
+            ConfirmSchematicInstallBtn.Content = L.Get("schematics.instant_install");
+        }
+
+        private void RefreshMultiplayerUI()
+        {
+            MultiplayerTitle.Text = L.Get("multiplayer.title");
+            NicknameLabel.Text = L.Get("multiplayer.nickname");
+            PlayerNameBox.Text = _config.PlayerNickname;
+            VirtualIpLabel.Text = L.Get("multiplayer.virtual_ip");
+            JoinLobbyHeader.Text = L.Get("multiplayer.join_title");
+            CreateLobbyHeader.Text = L.Get("multiplayer.create_title");
+            RoomPlayersTitle.Text = L.Get("multiplayer.players_title");
+            RoomPlayersHint.Text = L.Get("multiplayer.players_hint");
+            BtnDownloadEasyTier.Content = L.Get("multiplayer.redownload");
+            EasyTierRoomBox.ApplyTemplate();
+            if (EasyTierRoomBox.Template.FindName("WaterMark", EasyTierRoomBox) is TextBlock wm)
+                wm.Text = L.Get("multiplayer.room_placeholder");
+            if (_easyTierProcess == null || _easyTierProcess.HasExited)
+            {
+                MyVirtualIpBox.Text = L.Get("multiplayer.not_connected");
+                CreateRoomBtn.Content = L.Get("multiplayer.create");
+                JoinRoomBtn.Content = L.Get("multiplayer.join");
+                EasyTierStatusText.Text = L.Get("multiplayer.ready");
+            }
+        }
+
+        private void RefreshSettingsUI()
+        {
+            SettingsTitle.Text = L.Get("settings.global_title");
+            SettingsProxyLabel.Text = L.Get("settings.proxy_label");
+            var proxyIdx = ProxyNodeBox.SelectedIndex;
+            ProxyNodeBox.Items.Clear();
+            ProxyNodeBox.Items.Add(L.Get("settings.proxy_0"));
+            ProxyNodeBox.Items.Add(L.Get("settings.proxy_1"));
+            ProxyNodeBox.Items.Add(L.Get("settings.proxy_2"));
+            ProxyNodeBox.Items.Add(L.Get("settings.proxy_3"));
+            ProxyNodeBox.Items.Add(L.Get("settings.proxy_4"));
+            ProxyNodeBox.Items.Add(L.Get("settings.proxy_5"));
+            ProxyNodeBox.SelectedIndex = proxyIdx >= 0 ? proxyIdx : 1;
+
+            SettingsJavaPathLabel.Text = L.Get("settings.java_path_label");
+            SettingsBrowseBtn.Content = L.Get("settings.browse");
+            ScanGlobalJavaBtn.Content = L.Get("settings.rescan");
+            SettingsRamLabel.Text = L.Get("settings.java_ram_label");
+            GlobalAutoRamCheck.Content = L.Get("settings.auto_ram");
+
+            SettingsLanguageLabel.Text = L.Get("settings.language_label");
+            _suppressLangEvent = true;
+            LanguageComboBox.Items.Clear();
+            LanguageComboBox.Items.Add(new ComboBoxItem { Tag = "auto", Content = L.Get("settings.language_auto") });
+            LanguageComboBox.Items.Add(new ComboBoxItem { Tag = "zh-CN", Content = L.Get("settings.language_zh") });
+            LanguageComboBox.Items.Add(new ComboBoxItem { Tag = "en-US", Content = L.Get("settings.language_en") });
+            LanguageComboBox.SelectedIndex = string.IsNullOrEmpty(_config.Language) ? 0
+                : _config.Language == "zh-CN" ? 1
+                : _config.Language == "en-US" ? 2 : 0;
+            _suppressLangEvent = false;
+
+            if (!_suppressAutoRamEvent)
+            {
+                bool isAuto = GlobalAutoRamCheck.IsChecked ?? false;
+                GlobalRamText.Text = isAuto ? L.T("settings.auto_ram_text", (int)GlobalRamSlider.Value) : $"{(int)GlobalRamSlider.Value} MB";
+            }
+        }
+
+        private void RefreshVersionSelectUI()
+        {
+            VersionSelectFolderLabel.Text = L.Get("version.folder_list");
+            ImportVersionBtn.Content = L.Get("version.import_jar");
+            AddFolderBtn.Content = L.Get("version.import_folder");
+        }
+
+        private void RefreshMoreUI()
+        {
+            MoreHeader.Text = L.Get("more.title");
+            CommunityResourcesHeader.Text = L.Get("more.community");
+            WikiButtonText.Text = L.Get("more.wiki");
+            WikiDescriptionText.Text = L.Get("more.wiki_desc");
+            SupportHeader.Text = L.Get("more.support");
+            SupportDescriptionText.Text = L.Get("more.buy_prompt");
+        }
+
+        private void RefreshDialogButtons()
+        {
+            DialogOkBtn.Content = L.Get("dialog.ok");
+            DialogYesBtn.Content = L.Get("dialog.yes");
+            DialogNoBtn.Content = L.Get("dialog.no");
+            DialogCancelBtn.Content = L.Get("dialog.cancel");
+            ModInstallCancelBtn.Content = L.Get("dialog.cancel");
+            SchematicInstallCancelBtn.Content = L.Get("dialog.cancel");
+            ReleaseNotesCloseBtn.Content = L.Get("release_notes.close");
+        }
+
+        private void RefreshDataGridHeaders()
+        {
+            // DataGrid column headers set dynamically in XAML, handled when needed
+        }
+
+        private void RefreshVersionSettingsUI()
+        {
+            if (_currentInstance != null)
+                VSettingsTitle.Text = L.T("vsettings.title_with_name", _currentInstance.Name);
+            else
+                VSettingsTitle.Text = L.Get("vsettings.title");
+
+            VSidebarOverviewBtn.Content = L.Get("vsettings.overview");
+            VSidebarConfigBtn.Content = L.Get("vsettings.config");
+            VSidebarModBtn.Content = L.Get("vsettings.mod_manage");
+            VSidebarSchematicBtn.Content = L.Get("vsettings.schematic_manage");
+            VSidebarSaveDataBtn.Content = L.Get("vsettings.save_data");
+            VSidebarOpenFolderBtn.Content = L.Get("vsettings.open_folder");
+            OpenGameFolderItem.Header = L.Get("vsettings.open_game_folder");
+            OpenDataFolderItem.Header = L.Get("vsettings.open_data_folder");
+
+            VSettingsOverviewTitle.Text = L.Get("vsettings.version_overview");
+            VSettingsInstanceTypeLabel.Text = L.Get("vsettings.mindustry_instance");
+            VSettingsPathLabel.Text = L.Get("vsettings.physical_path");
+            StartRenameBtn.Content = L.Get("vsettings.rename");
+            ConfirmRenameBtn.Content = L.Get("vsettings.confirm");
+            CancelRenameBtn.Content = L.Get("vsettings.cancel");
+
+            VSettingsConfigTitle.Text = L.Get("vsettings.startup_options");
+            VSettingsIsolationLabel.Text = L.Get("vsettings.isolation_label");
+            var isoIdx = VSettingsIsolationBox.SelectedIndex;
+            VSettingsIsolationBox.Items.Clear();
+            VSettingsIsolationBox.Items.Add(L.Get("vsettings.isolation_on"));
+            VSettingsIsolationBox.Items.Add(L.Get("vsettings.isolation_off"));
+            VSettingsIsolationBox.SelectedIndex = isoIdx >= 0 ? isoIdx : 0;
+
+            VSettingsJavaLabel.Text = L.Get("vsettings.custom_java");
+            VSettingsBrowseBtn.Content = L.Get("settings.browse");
+            ScanVersionJavaBtn.Content = L.Get("settings.rescan");
+            VSettingsInstanceRamLabel.Text = L.Get("vsettings.instance_ram");
+            VersionAutoRamCheck.Content = L.Get("vsettings.follow_auto");
+            VSettingsJvmLabel.Text = L.Get("vsettings.custom_jvm");
+
+            LocalModTitle.Text = L.Get("mods.local_title");
+            LocalModRefreshBtn.Content = L.Get("mods.refresh");
+            NoModText.Text = L.Get("mods.no_mods");
+
+            LocalSchematicTitle.Text = L.Get("schematics.local_title");
+            LocalSchematicRefreshBtn.Content = L.Get("mods.refresh");
+            NoSchematicText.Text = L.Get("schematics.no_local");
+        }
+
+        private void RefreshSaveDataUI()
+        {
+            SaveDataTitle.Text = L.Get("saves.title");
+            SaveDataSectionTitle.Text = L.Get("saves.section_title");
+            SaveSettingsBtn.Content = L.Get("saves.save_changes");
+            RescueSaveDataBtn.Content = L.Get("saves.rebuild_index");
+            ParseSaveDataBtn.Content = L.Get("saves.read_edit");
+            RefreshSavesBtn.Content = L.Get("saves.refresh_parse");
+            SettingsSearchLabel.Text = L.Get("search.label");
+        }
+
+        private bool _suppressAutoRamEvent = false;
+        private bool _suppressLangEvent = false;
+        private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressLangEvent) return;
+            if (LanguageComboBox.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                string target = tag;
+                if (tag == "auto")
+                    target = L.AutoDetect();
+
+                if (target != L.CurrentLang)
+                {
+                    _config.Language = tag == "auto" ? "" : target;
+                    SaveConfig();
+                    L.LoadLanguage(target);
                 }
             }
         }
@@ -1136,7 +1418,7 @@ namespace mindustry_launcher
         {
             if (sender is Button btn && btn.Tag is string fp)
             {
-                if (await ShowDialogAsync("移除列表项", $"仅从启动器列表中移除此文件夹（不影响本地文件）。\n确定移除吗？\n{fp}", DialogIcon.Question) == MsgResult.Yes)
+                if (await ShowDialogAsync(L.Get("dialog.remove_folder_title"), L.T("dialog.remove_folder_msg", fp), DialogIcon.Question) == MsgResult.Yes)
                 {
                     _config.ManagedFolders.Remove(fp);
                     SaveConfig();
@@ -1184,7 +1466,7 @@ namespace mindustry_launcher
         {
             if (sender is Button btn && btn.Tag is GameInstanceInfo info)
             {
-                if (await ShowDialogAsync("删除版本", $"警告：确定要彻底删除该版本吗？此操作不可逆！\n{info.FullPath}", DialogIcon.Warning) == MsgResult.Yes)
+                if (await ShowDialogAsync(L.Get("dialog.delete_version_title"), L.T("dialog.delete_version_msg", info.FullPath), DialogIcon.Warning) == MsgResult.Yes)
                 {
                     try
                     {
@@ -1200,7 +1482,7 @@ namespace mindustry_launcher
                     }
                     catch (Exception ex)
                     {
-                        ShowDialog("错误", $"删除失败: {ex.Message}", DialogIcon.Error);
+                        ShowDialog(L.Get("dialog.error"), L.T("dialog.delete_error", ex.Message), DialogIcon.Error);
                     }
                 }
             }
@@ -1210,11 +1492,11 @@ namespace mindustry_launcher
         {
             if (_currentInstance == null)
             {
-                ShowDialog("提示", "请先选择一个版本！");
+                ShowDialog(L.Get("dialog.info"), L.Get("status.select_instance_first"));
                 return;
             }
             LoadVersionConfig(_currentInstance.FullPath);
-            VSettingsTitle.Text = $"版本设置 - {_currentInstance.Name}";
+            VSettingsTitle.Text = L.T("vsettings.title_with_name", _currentInstance.Name);
             VSettingsIsolationBox.SelectedIndex = _currentVersionConfig.UseIsolation ? 0 : 1;
             VSettingsJavaComboBox.Text = _currentVersionConfig.CustomJavaPath;
             VSettingsJvmArgsBox.Text = _currentVersionConfig.CustomJvmArgs;
@@ -1344,7 +1626,7 @@ namespace mindustry_launcher
             string nn = RenameTextBox.Text.Trim();
             if (string.IsNullOrEmpty(nn) || nn.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             {
-                ShowDialog("提示", "名称无效！");
+                ShowDialog(L.Get("dialog.info"), L.Get("dialog.rename_invalid"));
                 return;
             }
 
@@ -1360,7 +1642,7 @@ namespace mindustry_launcher
                 string np = Path.Combine(Directory.GetParent(op)!.FullName, nn);
                 if (Directory.Exists(np))
                 {
-                    ShowDialog("提示", "已存在同名版本！");
+                    ShowDialog(L.Get("dialog.info"), L.Get("dialog.rename_exists"));
                     return;
                 }
                 Directory.Move(op, np);
@@ -1373,14 +1655,14 @@ namespace mindustry_launcher
                 }
                 OverviewVersionName.Text = nn;
                 OverviewVersionPath.Text = np;
-                VSettingsTitle.Text = $"版本设置 - {nn}";
+                VSettingsTitle.Text = L.T("vsettings.title_with_name", nn);
                 UpdateMainUI();
                 FolderListBox_SelectionChanged(null!, null!);
                 CancelRename_Click(null!, null!);
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"重命名失败: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("dialog.rename_error", ex.Message), DialogIcon.Error);
             }
         }
         private void ScanMods()
@@ -1489,7 +1771,7 @@ namespace mindustry_launcher
         {
             if (sender is Button b && b.Tag is string p)
             {
-                if (await ShowDialogAsync("MDL", "确定删除吗？", DialogIcon.Warning) == MsgResult.Yes)
+                if (await ShowDialogAsync(L.Get("dialog.mdl"), L.Get("dialog.confirm_delete"), DialogIcon.Warning) == MsgResult.Yes)
                 {
                     try
                     {
@@ -1498,7 +1780,7 @@ namespace mindustry_launcher
                     }
                     catch (Exception ex)
                     {
-                        ShowDialog("错误", $"删除失败: {ex.Message}", DialogIcon.Error);
+                        ShowDialog(L.Get("dialog.error"), L.T("dialog.delete_error", ex.Message), DialogIcon.Error);
                     }
                 }
             }
@@ -1531,7 +1813,7 @@ namespace mindustry_launcher
         {
             if (sender is Button b && b.Tag is string p)
             {
-                if (await ShowDialogAsync("MDL", "确定删除该蓝图吗？", DialogIcon.Warning) == MsgResult.Yes)
+                if (await ShowDialogAsync(L.Get("dialog.mdl"), L.Get("dialog.confirm_delete_schematic"), DialogIcon.Warning) == MsgResult.Yes)
                 {
                     try
                     {
@@ -1540,7 +1822,7 @@ namespace mindustry_launcher
                     }
                     catch (Exception ex)
                     {
-                        ShowDialog("错误", $"删除失败: {ex.Message}", DialogIcon.Error);
+                        ShowDialog(L.Get("dialog.error"), L.T("dialog.delete_error", ex.Message), DialogIcon.Error);
                     }
                 }
             }
@@ -1563,7 +1845,7 @@ namespace mindustry_launcher
             if (string.IsNullOrEmpty(binPath)) return;
             if (!File.Exists(binPath))
             {
-                SaveDataStatusText.Text = "文件未找到 (从未启动过游戏，或被移动)";
+                SaveDataStatusText.Text = L.Get("saves.file_not_found");
                 SaveDataStatusText.Foreground = Brushes.Gray;
                 return;
             }
@@ -1571,12 +1853,12 @@ namespace mindustry_launcher
             bool isHealthy = editor.LoadList(binPath, out var lst);
             if (isHealthy)
             {
-                SaveDataStatusText.Text = $"解析完美！包含 {lst.Count} 个游戏配置项\n(注：地图存档位于 saves 文件夹)";
+                SaveDataStatusText.Text = L.T("saves.parse_perfect", lst.Count);
                 SaveDataStatusText.Foreground = Brushes.Green;
             }
             else
             {
-                SaveDataStatusText.Text = $"部分损坏！({editor.ErrorMessage})";
+                SaveDataStatusText.Text = L.T("saves.partial_damage", editor.ErrorMessage);
                 SaveDataStatusText.Foreground = Brushes.Crimson;
             }
         }
@@ -1586,14 +1868,14 @@ namespace mindustry_launcher
             string binPath = GetSettingsBinPath();
             if (!File.Exists(binPath))
             {
-                ShowDialog("提示", "找不到 settings.bin！");
+                ShowDialog(L.Get("dialog.info"), L.Get("saves.no_settings_bin"));
                 return;
             }
             var editor = new MindustrySettingsEditor();
             bool isHealthy = editor.LoadList(binPath, out var lst);
             if (lst.Count == 0 && !isHealthy)
             {
-                ShowDialog("错误", $"解析严重失败:\n{editor.ErrorMessage}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("saves.parse_critical", editor.ErrorMessage), DialogIcon.Error);
                 return;
             }
             _settingsView = CollectionViewSource.GetDefaultView(lst);
@@ -1601,7 +1883,7 @@ namespace mindustry_launcher
             SettingsDataGrid.ItemsSource = _settingsView;
             if (!isHealthy)
             {
-                ShowDialog("警告", $"解析中途遇到异常，尾部数据可能已丢失。\n原因: {editor.ErrorMessage}", DialogIcon.Warning);
+                ShowDialog(L.Get("dialog.warning"), L.T("saves.parse_warning", editor.ErrorMessage), DialogIcon.Warning);
             }
         }
 
@@ -1646,11 +1928,11 @@ namespace mindustry_launcher
                 string bak = p + ".bak";
                 File.Copy(p, bak, true);
                 editor.SaveList(p, list);
-                ShowDialog("MDL", "保存成功！已自动备份原文件为 .bak", DialogIcon.Info);
+                ShowDialog(L.Get("dialog.mdl"), L.Get("saves.save_success"), DialogIcon.Info);
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"保存失败: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("saves.save_error", ex.Message), DialogIcon.Error);
             }
         }
 
@@ -1658,20 +1940,20 @@ namespace mindustry_launcher
         {
             string binPath = GetSettingsBinPath();
             if (!File.Exists(binPath)) return;
-            if (await ShowDialogAsync("重建索引", "此操作会将 settings.bin 隔离，让游戏下次启动时重建全新索引！\n\n是否继续？", DialogIcon.Warning) == MsgResult.Yes)
+            if (await ShowDialogAsync(L.Get("dialog.warning"), L.Get("saves.rebuild_prompt"), DialogIcon.Warning) == MsgResult.Yes)
             {
                 try
                 {
                     File.Move(binPath, binPath + $".bak_{DateTime.Now:MMddHHmm}");
                     string bak = Path.Combine(Path.GetDirectoryName(binPath)!, "settings.backup");
                     if (File.Exists(bak)) File.Delete(bak);
-                    ShowDialog("提示", "重建指令已下达！请启动游戏恢复存档。");
+                    ShowDialog(L.Get("dialog.info"), L.Get("saves.rebuild_sent"));
                     ScanSaveDataStatus();
                     SettingsDataGrid.ItemsSource = null;
                 }
                 catch (Exception ex)
                 {
-                    ShowDialog("错误", $"操作失败: {ex.Message}", DialogIcon.Error);
+                    ShowDialog(L.Get("dialog.error"), L.T("saves.rebuild_error", ex.Message), DialogIcon.Error);
                 }
             }
         }
@@ -1680,7 +1962,7 @@ namespace mindustry_launcher
         {
             if (_currentInstance == null)
             {
-                ShowDialog("提示", "请先选择版本！");
+                ShowDialog(L.Get("dialog.info"), L.Get("status.select_version_first"));
                 return;
             }
 
@@ -1688,14 +1970,14 @@ namespace mindustry_launcher
 
             if (_runningInstancePaths.Contains(instancePath))
             {
-                ShowDialog("提示", "该实例已经正在运行中！\n请不要重复启动同一个版本。", DialogIcon.Warning);
+                ShowDialog(L.Get("dialog.info"), L.Get("status.already_running"), DialogIcon.Warning);
                 return;
             }
 
             string jar = Path.Combine(instancePath, "Mindustry.jar");
             if (!File.Exists(jar))
             {
-                ShowDialog("错误", "核心缺失！", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.Get("status.core_missing"), DialogIcon.Error);
                 return;
             }
 
@@ -1756,29 +2038,29 @@ namespace mindustry_launcher
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"启动失败: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("status.startup_fail", ex.Message), DialogIcon.Error);
             }
         }
 
         private void AnalyzeCrash(string log)
         {
-            string advice = "【未知错误】建议检查最近安装的 Mod 是否冲突。";
+            string advice = L.Get("crash.unknown");
             if (string.IsNullOrWhiteSpace(log))
             {
-                log = "未捕获到具体错误信息，可能是系统强制终止了游戏。";
+                log = L.Get("crash.no_log");
             }
             else if (log.Contains("OutOfMemoryError"))
-                advice = "【内存爆炸】检测到分配内存不足。当前模组较多，请在设置中关闭\"自动分配\"并将内存滑块向右拉大。";
+                advice = L.Get("crash.oom");
             else if (log.Contains("UnsupportedClassVersionError"))
-                advice = "【Java版本过旧】请安装并切换到 Java 17 或更高版本。";
+                advice = L.Get("crash.java_old");
             else if (log.Contains("MixinTransformationException") || log.Contains("MixinApplyError"))
-                advice = "【模组冲突】检测到多个 Mod 尝试修改同一核心代码。请尝试逐个禁用最近安装的 Mod。";
+                advice = L.Get("crash.mod_conflict");
             else if (log.Contains("NoSuchMethodError") || log.Contains("ClassNotFoundException"))
-                advice = "【版本不兼容】某些模组不支持当前的游戏核心版本。";
+                advice = L.Get("crash.version_mismatch");
 
-            ReleaseNotesTitle.Text = "🚀 游戏不幸坠毁！";
+            ReleaseNotesTitle.Text = L.Get("crash.title");
             ReleaseNotesTitle.Foreground = Brushes.Crimson;
-            ReleaseNotesText.Text = $"{advice}\n\n--- 原始报错诊断 (底部) ---\n{(log.Length > 800 ? log.Substring(log.Length - 800) : log)}";
+            ReleaseNotesText.Text = $"{advice}\n\n--- {L.Get("crash.log_header")} ---\n{(log.Length > 800 ? log.Substring(log.Length - 800) : log)}";
             OpenRepoBtn.Visibility = Visibility.Collapsed;
             ExportCrashBtn.Visibility = Visibility.Visible;
             AnimateFade(ReleaseNotesOverlay, true);
@@ -1786,17 +2068,17 @@ namespace mindustry_launcher
 
         private void ExportCrash_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new SaveFileDialog { Title = "导出错误报告", Filter = "文本文件 (*.txt)|*.txt", FileName = $"MDL_CrashReport_{DateTime.Now:yyyyMMdd_HHmmss}.txt" };
+            var dialog = new SaveFileDialog { Title = L.Get("dialog.export_report_title"), Filter = L.Get("dialog.export_report_filter"), FileName = $"MDL_CrashReport_{DateTime.Now:yyyyMMdd_HHmmss}.txt" };
             if (dialog.ShowDialog() == true)
             {
                 try
                 {
                     File.WriteAllText(dialog.FileName, ReleaseNotesText.Text);
-                    ShowDialog("MDL", "错误报告导出成功！", DialogIcon.Info);
+                    ShowDialog(L.Get("dialog.mdl"), L.Get("dialog.export_success"), DialogIcon.Info);
                 }
                 catch (Exception ex)
                 {
-                    ShowDialog("错误", $"导出失败: {ex.Message}", DialogIcon.Error);
+                    ShowDialog(L.Get("dialog.error"), L.T("dialog.export_error", ex.Message), DialogIcon.Error);
                 }
             }
         }
@@ -1823,7 +2105,7 @@ namespace mindustry_launcher
             }
             catch (Exception ex)
             {
-                ModBrowserLoadingText.Text = $"拉取列表失败: {ex.InnerException?.Message ?? ex.Message}";
+                ModBrowserLoadingText.Text = L.T("mods.fetch_error", ex.InnerException?.Message ?? ex.Message);
             }
         }
         private void ModSearchBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -1846,9 +2128,9 @@ namespace mindustry_launcher
         {
             if (sender is FrameworkElement f && f.DataContext is ModRegistryEntry mod)
             {
-                ReleaseNotesTitle.Text = $"{mod.Name} - 模组详情";
+                ReleaseNotesTitle.Text = L.T("mods.detail_title", mod.Name);
                 ReleaseNotesTitle.Foreground = Brushes.Black;
-                ReleaseNotesText.Text = $"作者: {mod.Author}\n仓库: {mod.Repo}\n描述: \n{mod.Description}";
+                ReleaseNotesText.Text = L.T("mods.detail_format", mod.Author, mod.Repo, mod.Description);
                 _currentDetailUrl = $"https://github.com/{mod.Repo}";
                 OpenRepoBtn.Visibility = Visibility.Visible;
                 ExportCrashBtn.Visibility = Visibility.Collapsed;
@@ -1859,7 +2141,7 @@ namespace mindustry_launcher
         {
             if (_isDownloading)
             {
-                ShowDialog("MDL", "当前有任务正在下载中，请稍后操作！", DialogIcon.Warning);
+                ShowDialog(L.Get("dialog.mdl"), L.Get("status.busy_downloading"), DialogIcon.Warning);
                 return;
             }
 
@@ -1868,12 +2150,12 @@ namespace mindustry_launcher
                 var all = GetAllInstalledInstances();
                 if (all.Count == 0)
                 {
-                    ShowDialog("提示", "请先导入游戏！");
+                    ShowDialog(L.Get("dialog.info"), L.Get("mods.no_instances"));
                     return;
                 }
 
                 _selectedModToInstall = mod;
-                ModInstallTitle.Text = $"安装模组 - {mod.Name}";
+                ModInstallTitle.Text = L.T("mods.install_title_with_name", mod.Name);
                 AllInstancesListBox.ItemsSource = all;
 
                 if (_currentInstance != null)
@@ -1885,7 +2167,7 @@ namespace mindustry_launcher
 
                 ModVersionComboBox.ItemsSource = null;
                 ModInstallProgressPanel.Visibility = Visibility.Visible;
-                ModInstallStatusText.Text = "获取版本中...";
+                ModInstallStatusText.Text = L.Get("mods.install_preparing");
                 AllInstancesListBox.IsEnabled = false;
                 ModVersionComboBox.IsEnabled = false;
                 ConfirmModInstallBtn.IsEnabled = false;
@@ -1901,7 +2183,7 @@ namespace mindustry_launcher
                     {
                         if (rels.Count == 0)
                         {
-                            ShowDialog("MDL", "该模组没有任何发布版本，无法下载。", DialogIcon.Info);
+                            ShowDialog(L.Get("dialog.mdl"), L.Get("mods.no_releases"), DialogIcon.Info);
                             AnimateFade(ModInstallOverlay, false);
                             return;
                         }
@@ -1911,7 +2193,7 @@ namespace mindustry_launcher
                 }
                 catch (Exception ex)
                 {
-                    ShowDialog("错误", $"获取版本网络错误: {ex.InnerException?.Message ?? ex.Message}", DialogIcon.Error);
+                    ShowDialog(L.Get("dialog.error"), L.T("mods.fetch_version_error", ex.InnerException?.Message ?? ex.Message), DialogIcon.Error);
                     AnimateFade(ModInstallOverlay, false);
                     return;
                 }
@@ -1964,7 +2246,7 @@ namespace mindustry_launcher
                 }
                 else
                 {
-                    if (await ShowDialogAsync("MDL", "该版本无编译好的附件，是否下载源码 ZIP？", DialogIcon.Question) == MsgResult.Yes)
+                    if (await ShowDialogAsync(L.Get("dialog.mdl"), L.Get("mods.no_asset"), DialogIcon.Question) == MsgResult.Yes)
                     {
                         url = UrlHelper.Format($"https://github.com/{_selectedModToInstall.Repo}/archive/refs/tags/{rel.TagName}.zip");
                         file = $"{string.Join("_", _selectedModToInstall.Name.Split(Path.GetInvalidFileNameChars()))}_{rel.TagName}_source.zip";
@@ -1987,15 +2269,15 @@ namespace mindustry_launcher
                 var prog = new Progress<double>(p =>
                 {
                     ModInstallProgressBar.Value = p;
-                    ModInstallStatusText.Text = $"下载中 {p:F1}%";
+                    ModInstallStatusText.Text = L.T("mods.install_downloading", p);
                 });
                 await DownloadFileAsync(url, Path.Combine(modsDir, file), prog);
-                ShowDialog("MDL", "模组安装成功！", DialogIcon.Info);
+                ShowDialog(L.Get("dialog.mdl"), L.Get("mods.install_success"), DialogIcon.Info);
                 AnimateFade(ModInstallOverlay, false);
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"安装失败: {ex.InnerException?.Message ?? ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("mods.install_error", ex.InnerException?.Message ?? ex.Message), DialogIcon.Error);
             }
             finally
             {
@@ -2013,8 +2295,6 @@ namespace mindustry_launcher
                 {
                     _currentSchematicRepo = parts[0];
                     _currentSchematicBranch = parts[1];
-                    if (SchematicSourceTitle != null)
-                        SchematicSourceTitle.Text = $"社区蓝图库 - {rb.Content}";
                     if (SchematicSearchBox != null)
                         SchematicSearchBox.Text = "";
                     if (SchematicBrowserListBox != null)
@@ -2068,7 +2348,7 @@ namespace mindustry_launcher
 
                 if (forceRefresh || !File.Exists(zipPath))
                 {
-                    SchematicBrowserLoadingText!.Text = "正在解析并下载仓库 ZIP，首次拉取可能需要几十秒，请耐心等待...";
+                    SchematicBrowserLoadingText!.Text = L.Get("schematics.fetching_zip");
                     string zipUrl = UrlHelper.Format($"https://github.com/{_currentSchematicRepo}/archive/refs/heads/{_currentSchematicBranch}.zip");
                     using var resp = await _http.GetAsync(zipUrl, HttpCompletionOption.ResponseHeadersRead, token);
                     using var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -2077,7 +2357,7 @@ namespace mindustry_launcher
 
                 if (token.IsCancellationRequested) return;
 
-                SchematicBrowserLoadingText!.Text = "正在本地原生解析二进制蓝图元数据...";
+                SchematicBrowserLoadingText!.Text = L.Get("schematics.parsing");
                 var newList = new List<SchematicEntry>();
 
                 await Task.Run(() =>
@@ -2116,7 +2396,7 @@ namespace mindustry_launcher
             catch (Exception ex)
             {
                 if (SchematicBrowserLoadingText != null && !token.IsCancellationRequested)
-                    SchematicBrowserLoadingText.Text = $"拉取蓝图列表失败: {ex.InnerException?.Message ?? ex.Message}\n请前往\"设置\"切换节点后，重试拉取。";
+                    SchematicBrowserLoadingText.Text = L.T("schematics.fetch_error", ex.InnerException?.Message ?? ex.Message);
                 if (FetchSchematicBtn != null)
                     FetchSchematicBtn.Visibility = Visibility.Visible;
             }
@@ -2194,7 +2474,7 @@ namespace mindustry_launcher
         {
             if (_isDownloading)
             {
-                ShowDialog("MDL", "当前有任务正在下载中，请稍后操作！", DialogIcon.Warning);
+                ShowDialog(L.Get("dialog.mdl"), L.Get("status.busy_downloading"), DialogIcon.Warning);
                 return;
             }
 
@@ -2203,12 +2483,12 @@ namespace mindustry_launcher
                 var all = GetAllInstalledInstances();
                 if (all.Count == 0)
                 {
-                    ShowDialog("提示", "请先导入游戏实例！");
+                    ShowDialog(L.Get("dialog.info"), L.Get("status.no_instances"));
                     return;
                 }
 
                 _selectedSchematicToInstall = schematic;
-                SchematicInstallTitle.Text = $"安装蓝图 - {schematic.UI_Name}";
+                SchematicInstallTitle.Text = L.T("schematics.install_title_with_name", schematic.UI_Name);
                 SchematicInstancesListBox.ItemsSource = all;
 
                 if (_currentInstance != null)
@@ -2258,14 +2538,14 @@ namespace mindustry_launcher
                 if (entry != null)
                 {
                     entry.ExtractToFile(targetFile, true);
-                    ShowDialog("MDL", "蓝图从缓存解压并安装成功！", DialogIcon.Info);
+                    ShowDialog(L.Get("dialog.mdl"), L.Get("schematics.install_success"), DialogIcon.Info);
                 }
 
                 AnimateFade(SchematicInstallOverlay, false);
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"安装失败: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("schematics.install_error", ex.Message), DialogIcon.Error);
             }
         }
 
@@ -2292,7 +2572,7 @@ namespace mindustry_launcher
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"无法打开链接: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("status.cannot_open_link", ex.Message), DialogIcon.Error);
             }
         }
 
@@ -2304,7 +2584,7 @@ namespace mindustry_launcher
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"无法打开链接: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("status.cannot_open_link", ex.Message), DialogIcon.Error);
             }
         }
 
@@ -2316,7 +2596,7 @@ namespace mindustry_launcher
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"无法打开链接: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("status.cannot_open_link", ex.Message), DialogIcon.Error);
             }
         }
 
@@ -2326,7 +2606,12 @@ namespace mindustry_launcher
             {
                 _currentDownloadRepo = repo;
                 if (DownloadSourceTitle != null)
-                    DownloadSourceTitle.Text = $"获取新版本 - {rb.Content}";
+                {
+                    string sourceName = rb == RbOfficial ? L.Get("download.official")
+                        : rb == RbX ? L.Get("download.x_client")
+                        : L.Get("download.foo_client");
+                    DownloadSourceTitle.Text = L.T("download.source_with_name", sourceName);
+                }
                 await FetchRemoteVersionsAsync();
             }
         }
@@ -2334,7 +2619,7 @@ namespace mindustry_launcher
         {
             if (RemoteVersionLoadingText != null)
             {
-                RemoteVersionLoadingText.Text = "正在拉取列表...";
+                RemoteVersionLoadingText.Text = L.Get("download.fetching_short");
                 RemoteVersionLoadingText.Visibility = Visibility.Visible;
             }
 
@@ -2372,17 +2657,17 @@ namespace mindustry_launcher
             catch (Exception ex)
             {
                 if (RemoteVersionLoadingText != null)
-                    RemoteVersionLoadingText.Text = $"拉取超时，请稍后刷新: {ex.InnerException?.Message ?? ex.Message}";
+                    RemoteVersionLoadingText.Text = L.T("download.fetch_timeout", ex.InnerException?.Message ?? ex.Message);
             }
         }
         private void RemoteVersion_RightClick(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement f && f.DataContext is GitHubRelease rel)
             {
-                ReleaseNotesTitle.Text = $"{rel.TagName} - 更新日志";
+                ReleaseNotesTitle.Text = L.T("release_notes.version_title", rel.TagName);
                 ReleaseNotesTitle.Foreground = Brushes.Black;
                 ReleaseNotesText.Text = string.IsNullOrWhiteSpace(rel.Body)
-                    ? "作者很懒，没有留下任何说明..."
+                    ? L.Get("mods.blank_description")
                     : rel.Body;
                 _currentDetailUrl = $"https://github.com/{_currentDownloadRepo}/releases/tag/{rel.TagName}";
                 OpenRepoBtn.Visibility = Visibility.Visible;
@@ -2401,7 +2686,7 @@ namespace mindustry_launcher
                 }
                 catch (Exception ex)
                 {
-                    ShowDialog("错误", $"无法打开链接: {ex.Message}", DialogIcon.Error);
+                    ShowDialog(L.Get("dialog.error"), L.T("status.cannot_open_link", ex.Message), DialogIcon.Error);
                 }
             }
         }
@@ -2409,7 +2694,7 @@ namespace mindustry_launcher
         {
             if (_config.ManagedFolders.Count == 0)
             {
-                ShowDialog("提示", "请先导入文件夹！");
+                ShowDialog(L.Get("dialog.info"), L.Get("status.import_folder_first"));
                 return;
             }
 
@@ -2419,7 +2704,7 @@ namespace mindustry_launcher
 
             if (_isDownloading)
             {
-                ShowDialog("提示", "当前有下载任务，请稍后完成！");
+                ShowDialog(L.Get("dialog.info"), L.Get("download.busy"));
                 return;
             }
 
@@ -2434,7 +2719,7 @@ namespace mindustry_launcher
 
             if (candidates == null || candidates.Count == 0)
             {
-                ShowDialog("提示", "无适用的客户端文件。");
+                ShowDialog(L.Get("dialog.info"), L.Get("download.no_client"));
                 return;
             }
 
@@ -2458,7 +2743,7 @@ namespace mindustry_launcher
 
                 if (audio != null && standard != null)
                 {
-                    var r = await ShowDialogAsync("版本选择", "检测到 Foo 端带语音版。\n▶ 是: 下载语音版\n▶ 否: 下载标准版", DialogIcon.Question, showCancel: true);
+                    var r = await ShowDialogAsync(L.Get("download.foo_voice_title"), L.Get("download.foo_voice_msg"), DialogIcon.Question, showCancel: true);
                     if (r == MsgResult.Yes)
                         asset = audio;
                     else if (r == MsgResult.No)
@@ -2493,13 +2778,13 @@ namespace mindustry_launcher
 
             if (asset == null)
             {
-                ShowDialog("提示", "无法确定需要下载的文件，数据可能异常。");
+                ShowDialog(L.Get("dialog.info"), L.Get("download.cannot_determine"));
                 return;
             }
 
             string folder = Path.Combine(_config.ManagedFolders[0], "Versions",
-                rel.TagName + (_currentDownloadRepo.Contains("TinyLake") ? "-X端"
-                    : (_currentDownloadRepo.Contains("antigrief") ? "-Foo端" : "")));
+                rel.TagName + (_currentDownloadRepo.Contains("TinyLake") ? L.Get("download.suffix_x")
+                    : (_currentDownloadRepo.Contains("antigrief") ? L.Get("download.suffix_foo") : "")));
 
             int c = 1;
             string baseF = folder;
@@ -2516,15 +2801,15 @@ namespace mindustry_launcher
                 var prog = new Progress<double>(p =>
                 {
                     DownloadProgressBar.Value = p;
-                    StatusText.Text = $"下载中 {p:F1}%";
+                    StatusText.Text = L.T("mods.install_downloading", p);
                 });
                 await DownloadFileAsync(UrlHelper.Format(asset.BrowserDownloadUrl), Path.Combine(folder, "Mindustry.jar"), prog);
-                ShowDialog("成功", "下载成功！", DialogIcon.Info);
-                StatusText.Text = "下载成功！";
+                ShowDialog(L.Get("dialog.success"), L.Get("download.success"), DialogIcon.Info);
+                StatusText.Text = L.Get("download.success");
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"下载失败: {ex.InnerException?.Message ?? ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("download.fail", ex.InnerException?.Message ?? ex.Message), DialogIcon.Error);
             }
             finally
             {
@@ -2555,7 +2840,7 @@ namespace mindustry_launcher
         {
             try
             {
-                ScanGlobalJavaBtn.Content = "扫描中...";
+                ScanGlobalJavaBtn.Content = L.Get("settings.scanning");
                 ScanGlobalJavaBtn.IsEnabled = false;
                 string currentPath = GlobalJavaComboBox.Text;
                 var javas = await Task.Run(() => JavaScanner.Scan(currentPath, true));
@@ -2563,15 +2848,15 @@ namespace mindustry_launcher
                 if (javas.Count > 0)
                     GlobalJavaComboBox.Text = javas[0].Path;
                 else
-                    ShowDialog("MDL", "未在电脑中找到 Java。请手动浏览选择 javaw.exe", DialogIcon.Info);
+                    ShowDialog(L.Get("dialog.mdl"), L.Get("settings.no_java"), DialogIcon.Info);
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"扫描出错: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("settings.scan_error", ex.Message), DialogIcon.Error);
             }
             finally
             {
-                ScanGlobalJavaBtn.Content = "重新扫描";
+                ScanGlobalJavaBtn.Content = L.Get("settings.rescan");
                 ScanGlobalJavaBtn.IsEnabled = true;
             }
         }
@@ -2580,7 +2865,7 @@ namespace mindustry_launcher
         {
             try
             {
-                ScanVersionJavaBtn.Content = "扫描中...";
+                ScanVersionJavaBtn.Content = L.Get("settings.scanning");
                 ScanVersionJavaBtn.IsEnabled = false;
                 string currentPath = VSettingsJavaComboBox.Text;
                 var javas = await Task.Run(() => JavaScanner.Scan(currentPath, true));
@@ -2588,15 +2873,15 @@ namespace mindustry_launcher
                 if (javas.Count > 0)
                     VSettingsJavaComboBox.Text = javas[0].Path;
                 else
-                    ShowDialog("MDL", "未在电脑中找到 Java。请手动浏览选择 javaw.exe", DialogIcon.Info);
+                    ShowDialog(L.Get("dialog.mdl"), L.Get("settings.no_java"), DialogIcon.Info);
             }
             catch (Exception ex)
             {
-                ShowDialog("错误", $"扫描出错: {ex.Message}", DialogIcon.Error);
+                ShowDialog(L.Get("dialog.error"), L.T("settings.scan_error", ex.Message), DialogIcon.Error);
             }
             finally
             {
-                ScanVersionJavaBtn.Content = "重新扫描";
+                ScanVersionJavaBtn.Content = L.Get("settings.rescan");
                 ScanVersionJavaBtn.IsEnabled = true;
             }
         }
