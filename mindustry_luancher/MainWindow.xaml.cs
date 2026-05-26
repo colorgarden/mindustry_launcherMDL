@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -76,7 +77,10 @@ namespace mindustry_launcher
 
                         saveList.Add(meta);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to parse save file {file}: {ex.Message}");
+                    }
                 }
 
                 // 5. 按照修改时间倒序排列并绑定给前台
@@ -139,8 +143,9 @@ namespace mindustry_launcher
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"Failed to parse save metadata: {ex.Message}");
                 meta.Author = L.Get("save.author.corrupt");
             }
 
@@ -149,7 +154,7 @@ namespace mindustry_launcher
         private void ImportVersionBtn_Click(object sender, RoutedEventArgs e)
         {
             // 1. 检查是否设置了版本存储目录
-            if (_config.ManagedFolders == null || _config.ManagedFolders.Count == 0)
+            if (_configService.GetConfig().ManagedFolders == null || _configService.GetConfig().ManagedFolders.Count == 0)
             {
                 ShowDialog(L.Get("dialog.info"), L.Get("status.no_managed_folder"));
                 return;
@@ -181,7 +186,7 @@ namespace mindustry_launcher
                 }
 
                 // 5. 准备目标路径
-                string targetBaseDir = _config.ManagedFolders[0]; // 默认导入到第一个管理的目录
+                string targetBaseDir = _configService.GetConfig().ManagedFolders[0]; // 默认导入到第一个管理的目录
                 string targetDir = Path.Combine(targetBaseDir, "Versions", versionName);
 
                 if (Directory.Exists(targetDir))
@@ -240,7 +245,7 @@ namespace mindustry_launcher
                 Margin = new Thickness(0, 15, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Cursor = Cursors.Hand,
-                Background = new SolidColorBrush(Color.FromRgb(33, 150, 243)),
+                Background = new SolidColorBrush(Color.FromRgb(19, 114, 206)),
                 Foreground = Brushes.White,
                 BorderThickness = new Thickness(0)
             };
@@ -263,85 +268,68 @@ namespace mindustry_launcher
         }
 
         // ==========================================
-        // 1. 全局配置与基础变量
+        // 1. 服务引用与 UI 状态
         // ==========================================
-        private static readonly string ConfigFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "launcher_config.json");
-        private AppConfig _config = new AppConfig();
-        private GameInstanceInfo? _currentInstance;
-        private HashSet<string> _runningInstancePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private VersionConfig _currentVersionConfig = new VersionConfig();
-        private readonly HttpClient _http;
+        private readonly ConfigService _configService;
+        private readonly VersionManagementService _versionService;
+        private readonly GameLaunchService _launchService;
+        private readonly RemoteDownloadService _downloadService;
+        private readonly ModService _modService;
+        private readonly SchematicService _schematicService;
+        private readonly MultiplayerService _multiplayerService;
+        private readonly HttpClient _httpClient;
 
-        private string _currentDownloadRepo = "Anuken/Mindustry";
-        private List<ModRegistryEntry> _allOnlineMods = new List<ModRegistryEntry>();
-        private ModRegistryEntry? _selectedModToInstall;
-
-        private string _currentSchematicRepo = "MinRi2/schematics-archives";
-        private string _currentSchematicBranch = "master";
-        private List<SchematicEntry> _allOnlineSchematics = new List<SchematicEntry>();
-        private SchematicEntry? _selectedSchematicToInstall;
-
-        private CancellationTokenSource? _schematicFetchCts;
-        private readonly SemaphoreSlim _schematicFetchLock = new SemaphoreSlim(1, 1);
         private bool _isDownloading = false;
         private string _currentDetailUrl = "";
 
         // 通用弹窗
         private TaskCompletionSource<MsgResult>? _dialogTcs;
-        public enum MsgResult { Ok, Yes, No, Cancel }
-        public enum DialogIcon { Info, Warning, Error, Question }
 
         private ICollectionView? _settingsView;
-
-        // ==========================================
-        // 2. 联机大厅：底层变量 (雷达 + 进程)
-        // ==========================================
-        private Process? _easyTierProcess = null;
-        private ObservableCollection<RoomPlayerInfo> _onlinePlayers = new ObservableCollection<RoomPlayerInfo>();
-        private UdpClient? _discoveryListener;
-        private CancellationTokenSource? _discoveryCts;
-        private DispatcherTimer? _discoveryTimer;
-        private string _myBroadcastIp = "";
-        private string _myNickname = "";
 
         // ==========================================
         // 3. 窗口初始化
         // ==========================================
         public MainWindow()
         {
-            var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (m, c, ch, e) => true };
-            _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(45) };
-            _http.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+            _configService = App.Services.GetRequiredService<ConfigService>();
+            _versionService = App.Services.GetRequiredService<VersionManagementService>();
+            _launchService = App.Services.GetRequiredService<GameLaunchService>();
+            _downloadService = App.Services.GetRequiredService<RemoteDownloadService>();
+            _modService = App.Services.GetRequiredService<ModService>();
+            _schematicService = App.Services.GetRequiredService<SchematicService>();
+            _multiplayerService = App.Services.GetRequiredService<MultiplayerService>();
+            _httpClient = App.Services.GetRequiredService<HttpClient>();
             InitializeComponent();
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            LoadConfig();
+            _configService.LoadConfig();
 
             // 语言初始化
-            if (string.IsNullOrEmpty(_config.Language))
+            if (string.IsNullOrEmpty(_configService.GetConfig().Language))
             {
-                _config.Language = L.AutoDetect();
-                SaveConfig();
+                _configService.GetConfig().Language = L.AutoDetect();
+                _configService.SaveConfig();
             }
-            L.LoadLanguage(_config.Language);
+            L.LoadLanguage(_configService.GetConfig().Language);
             L.LanguageChanged += () => Dispatcher.Invoke(RefreshAllUI);
 
-            GlobalJavaComboBox.Text = _config.GlobalJavaPath;
-            PlayerNameBox.Text = _config.PlayerNickname;
+            GlobalJavaComboBox.Text = _configService.GetConfig().GlobalJavaPath;
+            PlayerNameBox.Text = _configService.GetConfig().PlayerNickname;
             int maxRam = (HardwareInfo.GetTotalPhysicalMemoryMB() / 512) * 512;
             GlobalRamSlider.Maximum = maxRam;
             VSettingsRamSlider.Maximum = maxRam;
-            _config.GlobalRamMB = Math.Min(_config.GlobalRamMB, maxRam);
-            GlobalRamSlider.Value = _config.GlobalRamMB;
-            GlobalAutoRamCheck.IsChecked = _config.GlobalUseAutoRam;
-            UrlHelper.ProxyIndex = _config.ProxyNodeIndex;
-            ProxyNodeBox.SelectedIndex = _config.ProxyNodeIndex;
+            _configService.GetConfig().GlobalRamMB = Math.Min(_configService.GetConfig().GlobalRamMB, maxRam);
+            GlobalRamSlider.Value = _configService.GetConfig().GlobalRamMB;
+            GlobalAutoRamCheck.IsChecked = _configService.GetConfig().GlobalUseAutoRam;
+            UrlHelper.ProxyIndex = _configService.GetConfig().ProxyNodeIndex;
+            ProxyNodeBox.SelectedIndex = _configService.GetConfig().ProxyNodeIndex;
 
-            if (!string.IsNullOrEmpty(_config.LastSelectedInstancePath) && File.Exists(Path.Combine(_config.LastSelectedInstancePath, "Mindustry.jar")))
+            if (!string.IsNullOrEmpty(_configService.GetConfig().LastSelectedInstancePath) && File.Exists(Path.Combine(_configService.GetConfig().LastSelectedInstancePath, "Mindustry.jar")))
             {
-                _currentInstance = new GameInstanceInfo { Name = Path.GetFileName(_config.LastSelectedInstancePath), FullPath = _config.LastSelectedInstancePath };
+                _versionService.CurrentInstance = new GameInstanceInfo { Name = Path.GetFileName(_configService.GetConfig().LastSelectedInstancePath), FullPath = _configService.GetConfig().LastSelectedInstancePath };
             }
 
             UpdateMainUI();
@@ -350,18 +338,18 @@ namespace mindustry_launcher
 
             try
             {
-                if (_config.WindowWidth > 0 && _config.WindowHeight > 0)
+                if (_configService.GetConfig().WindowWidth > 0 && _configService.GetConfig().WindowHeight > 0)
                 {
-                    Width = _config.WindowWidth;
-                    Height = _config.WindowHeight;
+                    Width = _configService.GetConfig().WindowWidth;
+                    Height = _configService.GetConfig().WindowHeight;
                 }
-                if (_config.WindowLeft >= 0 && _config.WindowTop >= 0)
+                if (_configService.GetConfig().WindowLeft >= 0 && _configService.GetConfig().WindowTop >= 0)
                 {
-                    Left = _config.WindowLeft;
-                    Top = _config.WindowTop;
+                    Left = _configService.GetConfig().WindowLeft;
+                    Top = _configService.GetConfig().WindowTop;
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine($"Failed to restore window state: {ex.Message}"); }
 
             RefreshAllUI();
 
@@ -380,11 +368,9 @@ namespace mindustry_launcher
         // ==========================================
         // 4. 内存滑块控制
         // ==========================================
-        private int CalculateSmartRam()
+        private static int CalculateSmartRam()
         {
-            int raw = (HardwareInfo.GetTotalPhysicalMemoryMB() - 2048) / 2;
-            int clamped = Math.Clamp(raw, 1024, 8192);
-            return (clamped / 512) * 512;
+            return GameLaunchService.CalculateSmartRam();
         }
 
         private void GlobalAutoRamCheck_Changed(object sender, RoutedEventArgs e)
@@ -392,7 +378,7 @@ namespace mindustry_launcher
             if (GlobalRamSlider == null || GlobalRamText == null) return;
             bool isAuto = GlobalAutoRamCheck.IsChecked ?? false;
             GlobalRamSlider.IsEnabled = !isAuto;
-            _config.GlobalUseAutoRam = isAuto;
+            _configService.GetConfig().GlobalUseAutoRam = isAuto;
             if (isAuto)
             {
                 int autoRam = CalculateSmartRam();
@@ -416,10 +402,10 @@ namespace mindustry_launcher
             if (VSettingsRamSlider == null || VSettingsRamText == null) return;
             bool isAuto = VersionAutoRamCheck.IsChecked ?? false;
             VSettingsRamSlider.IsEnabled = !isAuto;
-            _currentVersionConfig.UseAutoRam = isAuto;
+            _versionService.CurrentVersionConfig.UseAutoRam = isAuto;
             if (isAuto)
             {
-                int targetRam = _config.GlobalUseAutoRam ? CalculateSmartRam() : _config.GlobalRamMB;
+                int targetRam = _configService.GetConfig().GlobalUseAutoRam ? CalculateSmartRam() : _configService.GetConfig().GlobalRamMB;
                 VSettingsRamSlider.Value = targetRam;
                 VSettingsRamText.Text = L.T("vsettings.follow_auto_text", targetRam);
             }
@@ -440,45 +426,45 @@ namespace mindustry_launcher
         // ==========================================
         private void StartUdpDiscovery(string broadcastIp, string nickname)
         {
-            _myBroadcastIp = broadcastIp;
-            _myNickname = nickname;
-            _onlinePlayers.Clear();
-            RoomPlayersListBox.ItemsSource = _onlinePlayers;
-            _discoveryCts = new CancellationTokenSource();
-            Task.Run(() => DiscoveryListenLoop(_discoveryCts.Token));
+            _multiplayerService.MyBroadcastIp = broadcastIp;
+            _multiplayerService.MyNickname = nickname;
+            _multiplayerService.OnlinePlayers.Clear();
+            RoomPlayersListBox.ItemsSource = _multiplayerService.OnlinePlayers;
+            _multiplayerService.DiscoveryCts = new CancellationTokenSource();
+            Task.Run(() => DiscoveryListenLoop(_multiplayerService.DiscoveryCts.Token));
 
-            _discoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            _discoveryTimer.Tick += (s, e) =>
+            _multiplayerService.DiscoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _multiplayerService.DiscoveryTimer.Tick += (s, e) =>
             {
                 try
                 {
                     using var sender = new UdpClient();
                     sender.EnableBroadcast = true;
-                    byte[] data = Encoding.UTF8.GetBytes($"MDL_WHO|{_myNickname}");
-                    sender.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(_myBroadcastIp), 6568));
+                    byte[] data = Encoding.UTF8.GetBytes($"MDL_WHO|{_multiplayerService.MyNickname}");
+                    sender.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(_multiplayerService.MyBroadcastIp), 6568));
                 }
-                catch { }
+                catch (Exception ex) { Debug.WriteLine($"UDP broadcast failed: {ex.Message}"); }
 
-                for (int i = _onlinePlayers.Count - 1; i >= 0; i--)
+                for (int i = _multiplayerService.OnlinePlayers.Count - 1; i >= 0; i--)
                 {
-                    if ((DateTime.Now - _onlinePlayers[i].LastSeen).TotalSeconds > 6)
-                        _onlinePlayers.RemoveAt(i);
+                    if ((DateTime.Now - _multiplayerService.OnlinePlayers[i].LastSeen).TotalSeconds > 6)
+                        _multiplayerService.OnlinePlayers.RemoveAt(i);
                 }
             };
-            _discoveryTimer.Start();
+            _multiplayerService.DiscoveryTimer.Start();
         }
 
         private void DiscoveryListenLoop(CancellationToken token)
         {
             try
             {
-                _discoveryListener = new UdpClient();
-                _discoveryListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                _discoveryListener.Client.Bind(new IPEndPoint(IPAddress.Any, 6568));
+                _multiplayerService.DiscoveryListener = new UdpClient();
+                _multiplayerService.DiscoveryListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                _multiplayerService.DiscoveryListener.Client.Bind(new IPEndPoint(IPAddress.Any, 6568));
                 while (!token.IsCancellationRequested)
                 {
                     IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
-                    byte[] bytes = _discoveryListener.Receive(ref remoteEP);
+                    byte[] bytes = _multiplayerService.DiscoveryListener.Receive(ref remoteEP);
                     string msg = Encoding.UTF8.GetString(bytes);
                     string ip = remoteEP.Address.ToString();
 
@@ -488,46 +474,46 @@ namespace mindustry_launcher
                         if (msg.StartsWith("MDL_WHO|"))
                         {
                             string name = msg.Substring(8);
-                            var existing = _onlinePlayers.FirstOrDefault(p => p.IP == ip);
+                            var existing = _multiplayerService.OnlinePlayers.FirstOrDefault(p => p.IP == ip);
                             if (existing != null)
                             {
                                 existing.LastSeen = DateTime.Now;
-                                int idx = _onlinePlayers.IndexOf(existing);
-                                _onlinePlayers[idx] = new RoomPlayerInfo { IP = ip, Name = name, LastSeen = DateTime.Now };
+                                int idx = _multiplayerService.OnlinePlayers.IndexOf(existing);
+                                _multiplayerService.OnlinePlayers[idx] = new RoomPlayerInfo { IP = ip, Name = name, LastSeen = DateTime.Now };
                             }
                             else
                             {
-                                _onlinePlayers.Add(new RoomPlayerInfo { IP = ip, Name = name, LastSeen = DateTime.Now });
+                                _multiplayerService.OnlinePlayers.Add(new RoomPlayerInfo { IP = ip, Name = name, LastSeen = DateTime.Now });
                             }
                         }
                         else if (msg.StartsWith("MDL_BYE|"))
                         {
-                            var existing = _onlinePlayers.FirstOrDefault(p => p.IP == ip);
+                            var existing = _multiplayerService.OnlinePlayers.FirstOrDefault(p => p.IP == ip);
                             if (existing != null)
-                                _onlinePlayers.Remove(existing);
+                                _multiplayerService.OnlinePlayers.Remove(existing);
                         }
                     });
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine($"UDP discovery error: {ex.Message}"); }
         }
 
         private void StopUdpDiscovery()
         {
             try
             {
-                if (!string.IsNullOrEmpty(_myBroadcastIp) && !string.IsNullOrEmpty(_myNickname))
+                if (!string.IsNullOrEmpty(_multiplayerService.MyBroadcastIp) && !string.IsNullOrEmpty(_multiplayerService.MyNickname))
                 {
                     using var sender = new UdpClient(); sender.EnableBroadcast = true;
-                    byte[] data = Encoding.UTF8.GetBytes($"MDL_BYE|{_myNickname}");
-                    sender.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(_myBroadcastIp), 6568));
+                    byte[] data = Encoding.UTF8.GetBytes($"MDL_BYE|{_multiplayerService.MyNickname}");
+                    sender.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(_multiplayerService.MyBroadcastIp), 6568));
                 }
             }
-            catch { }
-            _discoveryCts?.Cancel();
-            _discoveryTimer?.Stop();
-            try { _discoveryListener?.Close(); } catch { }
-            Dispatcher.InvokeAsync(() => _onlinePlayers.Clear());
+            catch (Exception ex) { Debug.WriteLine($"UDP bye send failed: {ex.Message}"); }
+            _multiplayerService.DiscoveryCts?.Cancel();
+            _multiplayerService.DiscoveryTimer?.Stop();
+            try { _multiplayerService.DiscoveryListener?.Close(); } catch (Exception ex) { Debug.WriteLine($"Failed to close UDP listener: {ex.Message}"); }
+            Dispatcher.InvokeAsync(() => _multiplayerService.OnlinePlayers.Clear());
         }
 
         // ==========================================
@@ -535,7 +521,7 @@ namespace mindustry_launcher
         // ==========================================
         private void CreateRoomBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_easyTierProcess != null && !_easyTierProcess.HasExited)
+            if (_multiplayerService.EasyTierProcess != null && !_multiplayerService.EasyTierProcess.HasExited)
             {
                 StopUdpDiscovery();
                 KillEasyTierProcess();
@@ -555,20 +541,17 @@ namespace mindustry_launcher
 
             string roomCode = new Random().Next(100000, 999999).ToString();
             EasyTierRoomBox.Text = roomCode;
-            string sub1 = roomCode.Substring(0, 2);
-            string sub2 = roomCode.Substring(2, 2);
-            string myIp = $"10.{sub1}.{sub2}.1";
+            var (myIp, broadcastIp) = MultiplayerService.ComputeRoomIps(roomCode, true);
             string args = $"-e \"{EasyTierServerBox.Text}\" --network-name \"mdl_room_{roomCode}\" --network-secret \"mdl_pwd_{roomCode}\" --ipv4 {myIp}/24";
 
-            // 核心修复：分离 TCP 和 UDP 防火墙指令，完美执行不报错
             string fw1 = "netsh advfirewall firewall add rule name=\"MDL_TCP\" dir=in action=allow protocol=TCP localport=6567,6568 >nul 2>&1";
             string fw2 = "netsh advfirewall firewall add rule name=\"MDL_UDP\" dir=in action=allow protocol=UDP localport=6567,6568 >nul 2>&1";
-            StartEasyTierProcess($"/k \"{fw1} & {fw2} & \"{exe}\" {args}\"", roomCode, true, myIp, myIp, $"10.{sub1}.{sub2}.255", myName);
+            StartEasyTierProcess($"/k \"{fw1} & {fw2} & \"{exe}\" {args}\"", roomCode, true, myIp, myIp, broadcastIp, myName);
         }
 
         private void JoinRoomBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_easyTierProcess != null && !_easyTierProcess.HasExited)
+            if (_multiplayerService.EasyTierProcess != null && !_multiplayerService.EasyTierProcess.HasExited)
             {
                 StopUdpDiscovery();
                 KillEasyTierProcess();
@@ -591,21 +574,20 @@ namespace mindustry_launcher
                 return;
             }
 
-            string sub1 = roomCode.Substring(0, 2);
-            string sub2 = roomCode.Substring(2, 2);
-            string myIp = $"10.{sub1}.{sub2}.{new Random().Next(2, 254)}";
+            var (myIp, broadcastIp) = MultiplayerService.ComputeRoomIps(roomCode, false);
+            string hostIp = $"10.{roomCode.Substring(0, 2)}.{roomCode.Substring(2, 2)}.1";
             string args = $"-e \"{EasyTierServerBox.Text}\" --network-name \"mdl_room_{roomCode}\" --network-secret \"mdl_pwd_{roomCode}\" --ipv4 {myIp}/24";
 
             string fw1 = "netsh advfirewall firewall add rule name=\"MDL_TCP\" dir=in action=allow protocol=TCP localport=6567,6568 >nul 2>&1";
             string fw2 = "netsh advfirewall firewall add rule name=\"MDL_UDP\" dir=in action=allow protocol=UDP localport=6567,6568 >nul 2>&1";
 
-            StartEasyTierProcess($"/c \"{fw1} & {fw2} & \"{exe}\" {args}\"", roomCode, false, myIp, $"10.{sub1}.{sub2}.1", $"10.{sub1}.{sub2}.255", myName);
+            StartEasyTierProcess($"/c \"{fw1} & {fw2} & \"{exe}\" {args}\"", roomCode, false, myIp, hostIp, broadcastIp, myName);
         }
         private void StartEasyTierProcess(string cmdArgs, string roomCode, bool isHost, string myIp, string hostIp, string brIp, string myName)
         {
             try
             {
-                _easyTierProcess = Process.Start(new ProcessStartInfo
+                _multiplayerService.EasyTierProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = "cmd.exe",
                     Arguments = cmdArgs,
@@ -615,7 +597,7 @@ namespace mindustry_launcher
                     WindowStyle = ProcessWindowStyle.Hidden
                 });
 
-                if (_easyTierProcess != null)
+                if (_multiplayerService.EasyTierProcess != null)
                 {
                     MyVirtualIpBox.Text = myIp; StartUdpDiscovery(brIp, myName);
 
@@ -637,10 +619,10 @@ namespace mindustry_launcher
                         CreateRoomBtn.IsEnabled = false;     // 触发灰化
                     }
 
-                    _easyTierProcess.EnableRaisingEvents = true;
-                    _easyTierProcess.Exited += (s, ev) => Dispatcher.InvokeAsync(() =>
+                    _multiplayerService.EasyTierProcess.EnableRaisingEvents = true;
+                    _multiplayerService.EasyTierProcess.Exited += (s, ev) => Dispatcher.InvokeAsync(() =>
                     {
-                        _easyTierProcess = null;
+                        _multiplayerService.EasyTierProcess = null;
                         StopUdpDiscovery();
                         MyVirtualIpBox.Text = L.Get("multiplayer.not_connected");
 
@@ -662,22 +644,7 @@ namespace mindustry_launcher
         // --- 修改部分 ---
         private void KillEasyTierProcess()
         {
-            if (_easyTierProcess == null || _easyTierProcess.HasExited)
-                return;
-
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "taskkill",
-                    Arguments = $"/PID {_easyTierProcess.Id} /T /F",
-                    UseShellExecute = true,
-                    Verb = "runas",
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                });
-            }
-            catch { }
+            _multiplayerService.KillEasyTierProcess();
         }
 
         // ==========================================
@@ -691,7 +658,7 @@ namespace mindustry_launcher
             {
                 try
                 {
-                    var bytes = await _http.GetByteArrayAsync(UrlHelper.Format("https://raw.githubusercontent.com/Anuken/Mindustry/master/core/assets/icons/icon_64.png", false));
+                    var bytes = await _httpClient.GetByteArrayAsync(UrlHelper.Format("https://raw.githubusercontent.com/Anuken/Mindustry/master/core/assets/icons/icon_64.png", false));
                     await File.WriteAllBytesAsync(p, bytes);
                 }
                 catch { return; }
@@ -714,26 +681,26 @@ namespace mindustry_launcher
             StopUdpDiscovery();
             KillEasyTierProcess(); // 彻底清理底层进程
 
-            _config.PlayerNickname = PlayerNameBox.Text;
-            _config.GlobalJavaPath = GlobalJavaComboBox.Text;
-            _config.GlobalRamMB = (int)GlobalRamSlider.Value;
+            _configService.GetConfig().PlayerNickname = PlayerNameBox.Text;
+            _configService.GetConfig().GlobalJavaPath = GlobalJavaComboBox.Text;
+            _configService.GetConfig().GlobalRamMB = (int)GlobalRamSlider.Value;
             if (WindowState == WindowState.Normal)
             {
-                _config.WindowWidth = Width;
-                _config.WindowHeight = Height;
-                _config.WindowLeft = Left;
-                _config.WindowTop = Top;
+                _configService.GetConfig().WindowWidth = Width;
+                _configService.GetConfig().WindowHeight = Height;
+                _configService.GetConfig().WindowLeft = Left;
+                _configService.GetConfig().WindowTop = Top;
             }
-            SaveConfig();
+            _configService.SaveConfig();
         }
 
         private void ProxyNodeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ProxyNodeBox.SelectedIndex != -1)
             {
-                _config.ProxyNodeIndex = ProxyNodeBox.SelectedIndex;
+                _configService.GetConfig().ProxyNodeIndex = ProxyNodeBox.SelectedIndex;
                 UrlHelper.ProxyIndex = ProxyNodeBox.SelectedIndex;
-                SaveConfig();
+                _configService.SaveConfig();
             }
         }
 
@@ -748,28 +715,46 @@ namespace mindustry_launcher
             if (RbSchemDesignIt != null) RbSchemDesignIt.IsEnabled = !isD;
         }
 
+        private static readonly SolidColorBrush NavInactiveFg = Brushes.White;
+        private static readonly SolidColorBrush NavActiveFg = new(Color.FromRgb(19, 114, 206));
+        private static readonly SolidColorBrush NavActiveBg = Brushes.White;
+
+        private void ResetNavButton(Button btn)
+        {
+            btn.Foreground = NavInactiveFg;
+            btn.Background = Brushes.Transparent;
+            btn.BorderBrush = Brushes.Transparent;
+            btn.BorderThickness = new Thickness(0);
+        }
+
+        private void ActivateNavButton(Button btn)
+        {
+            btn.Foreground = NavActiveFg;
+            btn.Background = NavActiveBg;
+            btn.BorderBrush = Brushes.Transparent;
+            btn.BorderThickness = new Thickness(0);
+        }
+
         private void SwitchTab(int idx)
         {
             MainTabControl.SelectedIndex = idx;
-            var d = new SolidColorBrush(Color.FromRgb(85, 85, 85));
-            var a = new SolidColorBrush(Color.FromRgb(33, 150, 243));
 
-            NavLaunchBtn.Foreground = d;
-            NavDownloadBtn.Foreground = d;
-            NavMultiplayerBtn.Foreground = d;
-            NavSettingsBtn.Foreground = d;
-            NavMoreBtn.Foreground = d;
+            ResetNavButton(NavLaunchBtn);
+            ResetNavButton(NavDownloadBtn);
+            ResetNavButton(NavMultiplayerBtn);
+            ResetNavButton(NavSettingsBtn);
+            ResetNavButton(NavMoreBtn);
 
             if (idx == 0)
-                NavLaunchBtn.Foreground = a;
+                ActivateNavButton(NavLaunchBtn);
             else if (idx == 1 || idx == 2 || idx == 3)
-                NavDownloadBtn.Foreground = a;
+                ActivateNavButton(NavDownloadBtn);
             else if (idx == 4)
-                NavMultiplayerBtn.Foreground = a;
+                ActivateNavButton(NavMultiplayerBtn);
             else if (idx == 5)
-                NavSettingsBtn.Foreground = a;
+                ActivateNavButton(NavSettingsBtn);
             else if (idx == 6)
-                NavMoreBtn.Foreground = a;
+                ActivateNavButton(NavMoreBtn);
 
             SubTabBar.Visibility = (idx >= 1 && idx <= 3) ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -858,11 +843,11 @@ namespace mindustry_launcher
             if (sender is RadioButton rb && rb.Tag is string tagStr && int.TryParse(tagStr, out int idx))
             {
                 SwitchTab(idx);
-                if (idx == 2 && _allOnlineMods.Count == 0)
+                if (idx == 2 && _modService.AllOnlineMods.Count == 0)
                     await FetchModRegistryAsync();
-                else if (idx == 3 && _allOnlineSchematics.Count == 0)
+                else if (idx == 3 && _schematicService.AllOnlineSchematics.Count == 0)
                 {
-                    string cachePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache", $"{_currentSchematicRepo.Replace("/", "_")}.zip");
+                    string cachePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache", $"{_schematicService.CurrentRepo.Replace("/", "_")}.zip");
                     if (File.Exists(cachePath))
                         _ = FetchSchematicsAsync(false);
                 }
@@ -894,16 +879,9 @@ namespace mindustry_launcher
 
 
         // 核心增强：智能寻找解压后的 exe (无视里面嵌套了多少层文件夹)
-        private string GetEasyTierExePath()
+        private static string GetEasyTierExePath()
         {
-            string dir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "EasyTier");
-            if (System.IO.Directory.Exists(dir))
-            {
-                // 开启 AllDirectories，穿透所有子文件夹寻找客户端
-                var files = System.IO.Directory.GetFiles(dir, "easytier-core.exe", System.IO.SearchOption.AllDirectories);
-                if (files.Length > 0) return files[0];
-            }
-            return "";
+            return MultiplayerService.GetEasyTierExePath();
         }
 
         // 手动点击下载按钮 (传入 true 强制无视缓存重新下载)
@@ -929,7 +907,7 @@ namespace mindustry_launcher
 
             try
             {
-                var rel = await _http.GetFromJsonAsync<GitHubRelease>("https://api.github.com/repos/EasyTier/EasyTier/releases/latest");
+                var rel = await _multiplayerService.FetchLatestEasyTierReleaseAsync();
                 var asset = rel?.Assets?.FirstOrDefault(a => a.Name.Contains("windows-x86_64") && a.Name.EndsWith(".zip"));
                 if (asset == null) { EasyTierStatusText.Text = L.Get("easytier.no_windows_version"); return; }
 
@@ -937,7 +915,7 @@ namespace mindustry_launcher
                 string zipPath = System.IO.Path.Combine(dir, asset.Name);
 
                 EasyTierStatusText.Text = L.Get("easytier.downloading");
-                await DownloadFileAsync(UrlHelper.Format(asset.BrowserDownloadUrl), zipPath, new Progress<double>(p => EasyTierProgressBar.Value = p));
+                await _downloadService.DownloadFileAsync(UrlHelper.Format(asset.BrowserDownloadUrl), zipPath, new Progress<double>(p => EasyTierProgressBar.Value = p));
 
                 EasyTierStatusText.Text = L.Get("easytier.extracting");
                 System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, dir, true);
@@ -972,9 +950,9 @@ namespace mindustry_launcher
 
         private void CloseOverlays_Click(object sender, RoutedEventArgs e)
         {
-            if (VersionSettingsOverlay.Visibility == Visibility.Visible && _currentInstance != null)
+            if (VersionSettingsOverlay.Visibility == Visibility.Visible && _versionService.CurrentInstance != null)
             {
-                SaveVersionConfig(_currentInstance.FullPath);
+                SaveVersionConfig(_versionService.CurrentInstance.FullPath);
                 AnimateFade(VersionSettingsOverlay, false);
             }
 
@@ -1004,7 +982,7 @@ namespace mindustry_launcher
             {
                 case DialogIcon.Info:
                     DialogIconText.Text = "ℹ";
-                    DialogIconBorder.Background = new SolidColorBrush(Color.FromRgb(33, 150, 243));
+                    DialogIconBorder.Background = new SolidColorBrush(Color.FromRgb(19, 114, 206));
                     DialogIconText.Foreground = Brushes.White;
                     break;
                 case DialogIcon.Warning:
@@ -1019,7 +997,7 @@ namespace mindustry_launcher
                     break;
                 case DialogIcon.Question:
                     DialogIconText.Text = "?";
-                    DialogIconBorder.Background = new SolidColorBrush(Color.FromRgb(33, 150, 243));
+                    DialogIconBorder.Background = new SolidColorBrush(Color.FromRgb(19, 114, 206));
                     DialogIconText.Foreground = Brushes.White;
                     break;
             }
@@ -1076,21 +1054,21 @@ namespace mindustry_launcher
 
         private void UpdateMainUI()
         {
-            if (_currentInstance == null)
+            if (_versionService.CurrentInstance == null)
             {
                 CurrentLaunchVersionText.Text = L.Get("launch.no_version_hint");
                 LaunchBtn.IsEnabled = false;
             }
             else
             {
-                if (_runningInstancePaths.Contains(_currentInstance.FullPath))
+                if (_launchService.IsInstanceRunning(_versionService.CurrentInstance.FullPath))
                 {
                     CurrentLaunchVersionText.Text = L.Get("launch.running");
                     LaunchBtn.IsEnabled = false;
                 }
                 else
                 {
-                    CurrentLaunchVersionText.Text = _currentInstance.Name;
+                    CurrentLaunchVersionText.Text = _versionService.CurrentInstance.Name;
                     LaunchBtn.IsEnabled = true;
                 }
             }
@@ -1205,7 +1183,7 @@ namespace mindustry_launcher
         {
             MultiplayerTitle.Text = L.Get("multiplayer.title");
             NicknameLabel.Text = L.Get("multiplayer.nickname");
-            PlayerNameBox.Text = _config.PlayerNickname;
+            PlayerNameBox.Text = _configService.GetConfig().PlayerNickname;
             VirtualIpLabel.Text = L.Get("multiplayer.virtual_ip");
             JoinLobbyHeader.Text = L.Get("multiplayer.join_title");
             CreateLobbyHeader.Text = L.Get("multiplayer.create_title");
@@ -1215,7 +1193,7 @@ namespace mindustry_launcher
             EasyTierRoomBox.ApplyTemplate();
             if (EasyTierRoomBox.Template.FindName("WaterMark", EasyTierRoomBox) is TextBlock wm)
                 wm.Text = L.Get("multiplayer.room_placeholder");
-            if (_easyTierProcess == null || _easyTierProcess.HasExited)
+            if (_multiplayerService.EasyTierProcess == null || _multiplayerService.EasyTierProcess.HasExited)
             {
                 MyVirtualIpBox.Text = L.Get("multiplayer.not_connected");
                 CreateRoomBtn.Content = L.Get("multiplayer.create");
@@ -1250,9 +1228,9 @@ namespace mindustry_launcher
             LanguageComboBox.Items.Add(new ComboBoxItem { Tag = "auto", Content = L.Get("settings.language_auto") });
             LanguageComboBox.Items.Add(new ComboBoxItem { Tag = "zh-CN", Content = L.Get("settings.language_zh") });
             LanguageComboBox.Items.Add(new ComboBoxItem { Tag = "en-US", Content = L.Get("settings.language_en") });
-            LanguageComboBox.SelectedIndex = string.IsNullOrEmpty(_config.Language) ? 0
-                : _config.Language == "zh-CN" ? 1
-                : _config.Language == "en-US" ? 2 : 0;
+            LanguageComboBox.SelectedIndex = string.IsNullOrEmpty(_configService.GetConfig().Language) ? 0
+                : _configService.GetConfig().Language == "zh-CN" ? 1
+                : _configService.GetConfig().Language == "en-US" ? 2 : 0;
             _suppressLangEvent = false;
 
             if (!_suppressAutoRamEvent)
@@ -1297,8 +1275,8 @@ namespace mindustry_launcher
 
         private void RefreshVersionSettingsUI()
         {
-            if (_currentInstance != null)
-                VSettingsTitle.Text = L.T("vsettings.title_with_name", _currentInstance.Name);
+            if (_versionService.CurrentInstance != null)
+                VSettingsTitle.Text = L.T("vsettings.title_with_name", _versionService.CurrentInstance.Name);
             else
                 VSettingsTitle.Text = L.Get("vsettings.title");
 
@@ -1366,37 +1344,21 @@ namespace mindustry_launcher
 
                 if (target != L.CurrentLang)
                 {
-                    _config.Language = tag == "auto" ? "" : target;
-                    SaveConfig();
+                    _configService.GetConfig().Language = tag == "auto" ? "" : target;
+                    _configService.SaveConfig();
                     L.LoadLanguage(target);
                 }
             }
         }
         private List<GameInstanceInfo> GetAllInstalledInstances()
         {
-            var all = new List<GameInstanceInfo>();
-            foreach (var root in _config.ManagedFolders)
-            {
-                if (!Directory.Exists(root)) continue;
-                string vDir = Path.Combine(root, "Versions");
-                if (Directory.Exists(vDir))
-                {
-                    foreach (var d in Directory.GetDirectories(vDir))
-                    {
-                        if (File.Exists(Path.Combine(d, "Mindustry.jar")))
-                        {
-                            all.Add(new GameInstanceInfo { Name = Path.GetFileName(d), FullPath = d });
-                        }
-                    }
-                }
-            }
-            return all;
+            return _versionService.GetAllInstalledInstances();
         }
         private void OpenVersionSelect_Click(object sender, RoutedEventArgs e)
         {
             FolderListBox.ItemsSource = null;
-            FolderListBox.ItemsSource = _config.ManagedFolders;
-            if (_config.ManagedFolders.Count > 0) FolderListBox.SelectedIndex = 0;
+            FolderListBox.ItemsSource = _configService.GetConfig().ManagedFolders;
+            if (_configService.GetConfig().ManagedFolders.Count > 0) FolderListBox.SelectedIndex = 0;
             AnimateFade(VersionSelectOverlay, true);
         }
 
@@ -1405,10 +1367,10 @@ namespace mindustry_launcher
             var d = new OpenFolderDialog();
             if (d.ShowDialog() == true)
             {
-                if (!_config.ManagedFolders.Contains(d.FolderName))
+                if (!_configService.GetConfig().ManagedFolders.Contains(d.FolderName))
                 {
-                    _config.ManagedFolders.Add(d.FolderName);
-                    SaveConfig();
+                    _configService.GetConfig().ManagedFolders.Add(d.FolderName);
+                    _configService.SaveConfig();
                     OpenVersionSelect_Click(null!, null!);
                 }
             }
@@ -1420,8 +1382,8 @@ namespace mindustry_launcher
             {
                 if (await ShowDialogAsync(L.Get("dialog.remove_folder_title"), L.T("dialog.remove_folder_msg", fp), DialogIcon.Question) == MsgResult.Yes)
                 {
-                    _config.ManagedFolders.Remove(fp);
-                    SaveConfig();
+                    _configService.GetConfig().ManagedFolders.Remove(fp);
+                    _configService.SaveConfig();
                     OpenVersionSelect_Click(null!, null!);
                 }
             }
@@ -1431,19 +1393,7 @@ namespace mindustry_launcher
         {
             if (FolderListBox.SelectedItem is string p && Directory.Exists(p))
             {
-                var list = new List<GameInstanceInfo>();
-                string vDir = Path.Combine(p, "Versions");
-                if (Directory.Exists(vDir))
-                {
-                    foreach (var d in Directory.GetDirectories(vDir))
-                    {
-                        if (File.Exists(Path.Combine(d, "Mindustry.jar")))
-                        {
-                            list.Add(new GameInstanceInfo { Name = Path.GetFileName(d), FullPath = d });
-                        }
-                    }
-                }
-                InstanceListBox.ItemsSource = list;
+                InstanceListBox.ItemsSource = VersionManagementService.GetInstancesInFolder(p);
             }
             else
             {
@@ -1455,9 +1405,9 @@ namespace mindustry_launcher
         {
             if (InstanceListBox.SelectedItem is GameInstanceInfo info)
             {
-                _currentInstance = info;
-                _config.LastSelectedInstancePath = info.FullPath;
-                SaveConfig();
+                _versionService.CurrentInstance = info;
+                _configService.GetConfig().LastSelectedInstancePath = info.FullPath;
+                _configService.SaveConfig();
                 CloseOverlays_Click(null!, null!);
             }
         }
@@ -1471,11 +1421,11 @@ namespace mindustry_launcher
                     try
                     {
                         Directory.Delete(info.FullPath, true);
-                        if (_currentInstance != null && _currentInstance.FullPath == info.FullPath)
+                        if (_versionService.CurrentInstance != null && _versionService.CurrentInstance.FullPath == info.FullPath)
                         {
-                            _currentInstance = null;
-                            _config.LastSelectedInstancePath = "";
-                            SaveConfig();
+                            _versionService.CurrentInstance = null;
+                            _configService.GetConfig().LastSelectedInstancePath = "";
+                            _configService.SaveConfig();
                             UpdateMainUI();
                         }
                         FolderListBox_SelectionChanged(null!, null!);
@@ -1490,18 +1440,18 @@ namespace mindustry_launcher
 
         private void OpenVersionSettings_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentInstance == null)
+            if (_versionService.CurrentInstance == null)
             {
                 ShowDialog(L.Get("dialog.info"), L.Get("status.select_instance_first"));
                 return;
             }
-            LoadVersionConfig(_currentInstance.FullPath);
-            VSettingsTitle.Text = L.T("vsettings.title_with_name", _currentInstance.Name);
-            VSettingsIsolationBox.SelectedIndex = _currentVersionConfig.UseIsolation ? 0 : 1;
-            VSettingsJavaComboBox.Text = _currentVersionConfig.CustomJavaPath;
-            VSettingsJvmArgsBox.Text = _currentVersionConfig.CustomJvmArgs;
-            VersionAutoRamCheck.IsChecked = _currentVersionConfig.UseAutoRam;
-            VSettingsRamSlider.Value = Math.Min(_currentVersionConfig.CustomRamMB, GlobalRamSlider.Maximum);
+            LoadVersionConfig(_versionService.CurrentInstance.FullPath);
+            VSettingsTitle.Text = L.T("vsettings.title_with_name", _versionService.CurrentInstance.Name);
+            VSettingsIsolationBox.SelectedIndex = _versionService.CurrentVersionConfig.UseIsolation ? 0 : 1;
+            VSettingsJavaComboBox.Text = _versionService.CurrentVersionConfig.CustomJavaPath;
+            VSettingsJvmArgsBox.Text = _versionService.CurrentVersionConfig.CustomJvmArgs;
+            VersionAutoRamCheck.IsChecked = _versionService.CurrentVersionConfig.UseAutoRam;
+            VSettingsRamSlider.Value = Math.Min(_versionService.CurrentVersionConfig.CustomRamMB, GlobalRamSlider.Maximum);
             CancelRename_Click(null!, null!);
             VSidebarConfig_Click(null!, null!);
             AnimateFade(VersionSettingsOverlay, true);
@@ -1533,10 +1483,10 @@ namespace mindustry_launcher
             VSettingsOverviewPanel.Visibility = Visibility.Visible;
             VSidebarOverviewBtn.Foreground = Brushes.DodgerBlue;
             VSidebarOverviewBtn.FontWeight = FontWeights.Bold;
-            if (_currentInstance != null)
+            if (_versionService.CurrentInstance != null)
             {
-                OverviewVersionName.Text = _currentInstance.Name;
-                OverviewVersionPath.Text = _currentInstance.FullPath;
+                OverviewVersionName.Text = _versionService.CurrentInstance.Name;
+                OverviewVersionPath.Text = _versionService.CurrentInstance.FullPath;
             }
         }
 
@@ -1586,15 +1536,15 @@ namespace mindustry_launcher
 
         private void OpenGameFolder_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentInstance != null)
-                Process.Start("explorer.exe", _currentInstance.FullPath);
+            if (_versionService.CurrentInstance != null)
+                Process.Start("explorer.exe", _versionService.CurrentInstance.FullPath);
         }
 
         private void OpenDataFolder_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentInstance == null) return;
-            LoadVersionConfig(_currentInstance.FullPath);
-            string data = _currentVersionConfig.UseIsolation ? Path.Combine(_currentInstance.FullPath, "data") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry");
+            if (_versionService.CurrentInstance == null) return;
+            LoadVersionConfig(_versionService.CurrentInstance.FullPath);
+            string data = _versionService.CurrentVersionConfig.UseIsolation ? Path.Combine(_versionService.CurrentInstance.FullPath, "data") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry");
             Directory.CreateDirectory(data);
             Process.Start("explorer.exe", data);
         }
@@ -1608,8 +1558,8 @@ namespace mindustry_launcher
 
         private void StartRename_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentInstance == null) return;
-            RenameTextBox.Text = _currentInstance.Name;
+            if (_versionService.CurrentInstance == null) return;
+            RenameTextBox.Text = _versionService.CurrentInstance.Name;
             StartRenameBtn.Visibility = Visibility.Collapsed;
             RenamePanel.Visibility = Visibility.Visible;
         }
@@ -1622,7 +1572,7 @@ namespace mindustry_launcher
 
         private void ConfirmRename_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentInstance == null) return;
+            if (_versionService.CurrentInstance == null) return;
             string nn = RenameTextBox.Text.Trim();
             if (string.IsNullOrEmpty(nn) || nn.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             {
@@ -1630,7 +1580,7 @@ namespace mindustry_launcher
                 return;
             }
 
-            if (nn == _currentInstance.Name)
+            if (nn == _versionService.CurrentInstance.Name)
             {
                 CancelRename_Click(null!, null!);
                 return;
@@ -1638,7 +1588,7 @@ namespace mindustry_launcher
 
             try
             {
-                string op = _currentInstance.FullPath;
+                string op = _versionService.CurrentInstance.FullPath;
                 string np = Path.Combine(Directory.GetParent(op)!.FullName, nn);
                 if (Directory.Exists(np))
                 {
@@ -1646,12 +1596,12 @@ namespace mindustry_launcher
                     return;
                 }
                 Directory.Move(op, np);
-                _currentInstance.Name = nn;
-                _currentInstance.FullPath = np;
-                if (_config.LastSelectedInstancePath == op)
+                _versionService.CurrentInstance.Name = nn;
+                _versionService.CurrentInstance.FullPath = np;
+                if (_configService.GetConfig().LastSelectedInstancePath == op)
                 {
-                    _config.LastSelectedInstancePath = np;
-                    SaveConfig();
+                    _configService.GetConfig().LastSelectedInstancePath = np;
+                    _configService.SaveConfig();
                 }
                 OverviewVersionName.Text = nn;
                 OverviewVersionPath.Text = np;
@@ -1667,93 +1617,17 @@ namespace mindustry_launcher
         }
         private void ScanMods()
         {
-            if (_currentInstance == null) return;
-            string data = _currentVersionConfig.UseIsolation ? Path.Combine(_currentInstance.FullPath, "data") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry");
-            string mDir = Path.Combine(data, "mods");
-            if (!Directory.Exists(mDir))
+            string modsDir = ModService.GetModsDir(_versionService.CurrentInstance, _versionService.CurrentVersionConfig);
+            if (string.IsNullOrEmpty(modsDir))
             {
                 ModListBox.ItemsSource = null;
                 NoModText.Visibility = Visibility.Visible;
                 return;
             }
 
-            var files = new DirectoryInfo(mDir).GetFiles()
-                .Where(f => f.Extension.Equals(".jar", StringComparison.OrdinalIgnoreCase) || f.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            var list = new List<ModInfo>();
-            foreach (var f in files)
-            {
-                var info = new ModInfo { FileName = f.Name, FullPath = f.FullName, FileSize = $"{(f.Length / 1024.0):F2} KB" };
-                ParseModArchive(info);
-                list.Add(info);
-            }
+            var list = ModService.ScanMods(modsDir);
             ModListBox.ItemsSource = list;
             NoModText.Visibility = list.Any() ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        private void ParseModArchive(ModInfo info)
-        {
-            try
-            {
-                using var stream = File.OpenRead(info.FullPath);
-                using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
-                var iconEntry = zip.Entries.FirstOrDefault(e => e.Name.Equals("icon.png", StringComparison.OrdinalIgnoreCase));
-                if (iconEntry != null)
-                {
-                    using var iconStream = iconEntry.Open();
-                    using var ms = new MemoryStream();
-                    iconStream.CopyTo(ms);
-                    ms.Position = 0;
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.StreamSource = ms;
-                    bitmap.EndInit();
-                    bitmap.Freeze();
-                    info.IconImage = bitmap;
-                }
-                var metaEntry = zip.Entries.FirstOrDefault(e => e.Name.Equals("mod.json", StringComparison.OrdinalIgnoreCase) || e.Name.Equals("mod.hjson", StringComparison.OrdinalIgnoreCase));
-                if (metaEntry != null)
-                {
-                    using var metaStream = metaEntry.Open();
-                    using var reader = new StreamReader(metaStream);
-                    string content = reader.ReadToEnd();
-                    try
-                    {
-                        var options = new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip };
-                        using var doc = JsonDocument.Parse(content, options);
-                        var root = doc.RootElement;
-                        string GetJsonString(string key) => root.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.String ? prop.GetString() ?? "" : "";
-                        string name = GetJsonString("displayName");
-                        if (string.IsNullOrEmpty(name)) name = GetJsonString("name");
-                        info.DisplayName = StripColors(name);
-                        info.Author = StripColors(GetJsonString("author"));
-                        info.Description = StripColors(GetJsonString("description"));
-                        info.Version = StripColors(GetJsonString("version"));
-                    }
-                    catch
-                    {
-                        info.DisplayName = StripColors(ExtractHjsonValue(content, "displayName") ?? ExtractHjsonValue(content, "name") ?? "");
-                        info.Author = StripColors(ExtractHjsonValue(content, "author") ?? "");
-                        string desc = ExtractHjsonValue(content, "description") ?? "";
-                        info.Description = StripColors(desc).Replace("\\n", "\n");
-                        info.Version = StripColors(ExtractHjsonValue(content, "version") ?? "");
-                    }
-                }
-            }
-            catch { }
-        }
-
-        private string? ExtractHjsonValue(string content, string key)
-        {
-            var match = Regex.Match(content, $@"""?{key}""?\s*:\s*([^""\r\n]+|""([^""]*)"")", RegexOptions.IgnoreCase);
-            if (match.Success)
-            {
-                string val = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[1].Value.Trim();
-                return val.TrimEnd(',').Trim();
-            }
-            return null;
         }
 
         private string StripColors(string input)
@@ -1788,18 +1662,15 @@ namespace mindustry_launcher
 
         private void ScanSchematics()
         {
-            if (_currentInstance == null) return;
-            string data = _currentVersionConfig.UseIsolation ? Path.Combine(_currentInstance.FullPath, "data") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry");
-            string sDir = Path.Combine(data, "schematics");
-            if (!Directory.Exists(sDir))
+            string schematicsDir = SchematicService.GetSchematicsDir(_versionService.CurrentInstance, _versionService.CurrentVersionConfig);
+            if (string.IsNullOrEmpty(schematicsDir))
             {
                 LocalSchematicListBox.ItemsSource = null;
                 NoSchematicText.Visibility = Visibility.Visible;
                 return;
             }
-            var files = new DirectoryInfo(sDir).GetFiles("*.msch", SearchOption.TopDirectoryOnly)
-                .Select(f => new ModInfo { FileName = f.Name, FullPath = f.FullName, FileSize = $"{(f.Length / 1024.0):F2} KB" })
-                .ToList();
+
+            var files = SchematicService.ScanLocalSchematics(schematicsDir);
             LocalSchematicListBox.ItemsSource = files;
             NoSchematicText.Visibility = files.Any() ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -1833,9 +1704,9 @@ namespace mindustry_launcher
         // ===============================================
         private string GetSettingsBinPath()
         {
-            if (_currentInstance == null) return "";
+            if (_versionService.CurrentInstance == null) return "";
             bool isIso = VSettingsIsolationBox.SelectedIndex == 0;
-            string d = isIso ? Path.Combine(_currentInstance.FullPath, "data") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry");
+            string d = isIso ? Path.Combine(_versionService.CurrentInstance.FullPath, "data") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry");
             return Path.Combine(d, "settings.bin");
         }
 
@@ -1960,15 +1831,15 @@ namespace mindustry_launcher
 
         private void LaunchGame_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentInstance == null)
+            if (_versionService.CurrentInstance == null)
             {
                 ShowDialog(L.Get("dialog.info"), L.Get("status.select_version_first"));
                 return;
             }
 
-            string instancePath = _currentInstance.FullPath;
+            string instancePath = _versionService.CurrentInstance.FullPath;
 
-            if (_runningInstancePaths.Contains(instancePath))
+            if (_launchService.IsInstanceRunning(instancePath))
             {
                 ShowDialog(L.Get("dialog.info"), L.Get("status.already_running"), DialogIcon.Warning);
                 return;
@@ -1982,37 +1853,17 @@ namespace mindustry_launcher
             }
 
             LoadVersionConfig(instancePath);
-            string data = _currentVersionConfig.UseIsolation ? Path.Combine(instancePath, "data") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry");
-            if (_currentVersionConfig.UseIsolation) Directory.CreateDirectory(data);
-
-            string exe = string.IsNullOrWhiteSpace(_currentVersionConfig.CustomJavaPath) ? _config.GlobalJavaPath : _currentVersionConfig.CustomJavaPath;
-            if (string.IsNullOrWhiteSpace(exe)) exe = "java";
-
-            int finalRam = _currentVersionConfig.UseAutoRam ? CalculateSmartRam() : _currentVersionConfig.CustomRamMB;
-            string memArg = $"-Xmx{finalRam}m ";
-            string jvmArgs = string.IsNullOrWhiteSpace(_currentVersionConfig.CustomJvmArgs) ? "" : _currentVersionConfig.CustomJvmArgs + " ";
+            string data = _launchService.GetDataDir(instancePath);
+            if (_versionService.CurrentVersionConfig.UseIsolation) Directory.CreateDirectory(data);
 
             try
             {
-                var pInfo = new ProcessStartInfo
-                {
-                    FileName = exe,
-                    Arguments = $"{memArg}{jvmArgs}-jar \"{jar}\"",
-                    UseShellExecute = false,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                    WorkingDirectory = instancePath
-                };
-                if (_currentVersionConfig.UseIsolation)
-                {
-                    pInfo.EnvironmentVariables["MINDUSTRY_DATA_DIR"] = data;
-                }
-
+                var pInfo = _launchService.BuildLaunchProcessInfo(instancePath, jar);
                 Process? p = Process.Start(pInfo);
                 if (p == null)
                     return;
 
-                _runningInstancePaths.Add(instancePath);
+                _launchService.MarkInstanceRunning(instancePath);
                 UpdateMainUI();
 
                 string errorLog = "";
@@ -2027,10 +1878,10 @@ namespace mindustry_launcher
                 });
 
                 p.EnableRaisingEvents = true;
-                p.Exited += (s, ev) => Dispatcher.Invoke(() =>
+                p.Exited += (s, ev) => Dispatcher.InvokeAsync(() =>
                 {
                     // 进程结束，把该路径从运行列表中移除，并刷新 UI
-                    _runningInstancePaths.Remove(instancePath);
+                    _launchService.MarkInstanceStopped(instancePath);
                     UpdateMainUI();
 
                     if (p.ExitCode != 0) AnalyzeCrash(errorLog);
@@ -2044,23 +1895,10 @@ namespace mindustry_launcher
 
         private void AnalyzeCrash(string log)
         {
-            string advice = L.Get("crash.unknown");
-            if (string.IsNullOrWhiteSpace(log))
-            {
-                log = L.Get("crash.no_log");
-            }
-            else if (log.Contains("OutOfMemoryError"))
-                advice = L.Get("crash.oom");
-            else if (log.Contains("UnsupportedClassVersionError"))
-                advice = L.Get("crash.java_old");
-            else if (log.Contains("MixinTransformationException") || log.Contains("MixinApplyError"))
-                advice = L.Get("crash.mod_conflict");
-            else if (log.Contains("NoSuchMethodError") || log.Contains("ClassNotFoundException"))
-                advice = L.Get("crash.version_mismatch");
-
-            ReleaseNotesTitle.Text = L.Get("crash.title");
+            var (title, report) = GameLaunchService.AnalyzeCrashLog(log);
+            ReleaseNotesTitle.Text = title;
             ReleaseNotesTitle.Foreground = Brushes.Crimson;
-            ReleaseNotesText.Text = $"{advice}\n\n--- {L.Get("crash.log_header")} ---\n{(log.Length > 800 ? log.Substring(log.Length - 800) : log)}";
+            ReleaseNotesText.Text = report;
             OpenRepoBtn.Visibility = Visibility.Collapsed;
             ExportCrashBtn.Visibility = Visibility.Visible;
             AnimateFade(ReleaseNotesOverlay, true);
@@ -2093,15 +1931,10 @@ namespace mindustry_launcher
 
             try
             {
-                string url = UrlHelper.Format("https://raw.githubusercontent.com/Anuken/MindustryMods/master/mods.json", false);
-                var list = await _http.GetFromJsonAsync<List<ModRegistryEntry>>(url);
-                if (list != null)
-                {
-                    _allOnlineMods = list.OrderByDescending(m => m.Stars).ToList();
-                    ModBrowserListBox.ItemsSource = _allOnlineMods;
-                    ModBrowserListBox.Visibility = Visibility.Visible;
-                    ModBrowserLoadingText.Visibility = Visibility.Collapsed;
-                }
+                var list = await _modService.FetchModRegistryAsync();
+                ModBrowserListBox.ItemsSource = list;
+                ModBrowserListBox.Visibility = Visibility.Visible;
+                ModBrowserLoadingText.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
@@ -2113,11 +1946,11 @@ namespace mindustry_launcher
             string k = ModSearchBox.Text.ToLower();
             if (string.IsNullOrWhiteSpace(k))
             {
-                ModBrowserListBox.ItemsSource = _allOnlineMods;
+                ModBrowserListBox.ItemsSource = _modService.AllOnlineMods;
             }
             else
             {
-                ModBrowserListBox.ItemsSource = _allOnlineMods.Where(m =>
+                ModBrowserListBox.ItemsSource = _modService.AllOnlineMods.Where(m =>
                     m.Name.ToLower().Contains(k)
                     || m.Author.ToLower().Contains(k)
                     || (m.Description != null && m.Description.ToLower().Contains(k))
@@ -2154,13 +1987,13 @@ namespace mindustry_launcher
                     return;
                 }
 
-                _selectedModToInstall = mod;
+                _modService.SelectedModToInstall = mod;
                 ModInstallTitle.Text = L.T("mods.install_title_with_name", mod.Name);
                 AllInstancesListBox.ItemsSource = all;
 
-                if (_currentInstance != null)
+                if (_versionService.CurrentInstance != null)
                 {
-                    var m = all.FirstOrDefault(i => i.FullPath == _currentInstance.FullPath);
+                    var m = all.FirstOrDefault(i => i.FullPath == _versionService.CurrentInstance.FullPath);
                     if (m != null)
                         AllInstancesListBox.SelectedItem = m;
                 }
@@ -2176,9 +2009,7 @@ namespace mindustry_launcher
 
                 try
                 {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                    string apiUrl = UrlHelper.Format($"https://api.github.com/repos/{mod.Repo}/releases", true);
-                    var rels = await _http.GetFromJsonAsync<List<GitHubRelease>>(apiUrl, cts.Token);
+                    var rels = await _modService.FetchModReleasesAsync(mod.Repo);
                     if (rels != null)
                     {
                         if (rels.Count == 0)
@@ -2223,7 +2054,7 @@ namespace mindustry_launcher
         }
         private async void ConfirmModInstall_Click(object sender, RoutedEventArgs e)
         {
-            if (_selectedModToInstall == null
+            if (_modService.SelectedModToInstall == null
                 || AllInstancesListBox.SelectedItem is not GameInstanceInfo target
                 || ModVersionComboBox.SelectedItem is not GitHubRelease rel)
                 return;
@@ -2248,8 +2079,8 @@ namespace mindustry_launcher
                 {
                     if (await ShowDialogAsync(L.Get("dialog.mdl"), L.Get("mods.no_asset"), DialogIcon.Question) == MsgResult.Yes)
                     {
-                        url = UrlHelper.Format($"https://github.com/{_selectedModToInstall.Repo}/archive/refs/tags/{rel.TagName}.zip");
-                        file = $"{string.Join("_", _selectedModToInstall.Name.Split(Path.GetInvalidFileNameChars()))}_{rel.TagName}_source.zip";
+                        url = UrlHelper.Format($"https://github.com/{_modService.SelectedModToInstall.Repo}/archive/refs/tags/{rel.TagName}.zip");
+                        file = $"{string.Join("_", _modService.SelectedModToInstall.Name.Split(Path.GetInvalidFileNameChars()))}_{rel.TagName}_source.zip";
                     }
                     else
                     {
@@ -2260,7 +2091,7 @@ namespace mindustry_launcher
 
                 LoadVersionConfig(target.FullPath);
                 string modsDir = Path.Combine(
-                    _currentVersionConfig.UseIsolation
+                    _versionService.CurrentVersionConfig.UseIsolation
                         ? Path.Combine(target.FullPath, "data")
                         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry"),
                     "mods");
@@ -2271,7 +2102,7 @@ namespace mindustry_launcher
                     ModInstallProgressBar.Value = p;
                     ModInstallStatusText.Text = L.T("mods.install_downloading", p);
                 });
-                await DownloadFileAsync(url, Path.Combine(modsDir, file), prog);
+                await _downloadService.DownloadFileAsync(url, Path.Combine(modsDir, file), prog);
                 ShowDialog(L.Get("dialog.mdl"), L.Get("mods.install_success"), DialogIcon.Info);
                 AnimateFade(ModInstallOverlay, false);
             }
@@ -2293,14 +2124,14 @@ namespace mindustry_launcher
                 var parts = tag.Split('|');
                 if (parts.Length == 2)
                 {
-                    _currentSchematicRepo = parts[0];
-                    _currentSchematicBranch = parts[1];
+                    _schematicService.CurrentRepo = parts[0];
+                    _schematicService.CurrentBranch = parts[1];
                     if (SchematicSearchBox != null)
                         SchematicSearchBox.Text = "";
                     if (SchematicBrowserListBox != null)
                         SchematicBrowserListBox.Visibility = Visibility.Collapsed;
-                    _allOnlineSchematics.Clear();
-                    string cachePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache", $"{_currentSchematicRepo.Replace("/", "_")}.zip");
+                    _schematicService.AllOnlineSchematics.Clear();
+                    string cachePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache", $"{_schematicService.CurrentRepo.Replace("/", "_")}.zip");
                     if (File.Exists(cachePath))
                         _ = FetchSchematicsAsync(false);
                     else if (FetchSchematicBtn != null)
@@ -2320,10 +2151,11 @@ namespace mindustry_launcher
         }
         private async Task FetchSchematicsAsync(bool forceRefresh)
         {
-            _schematicFetchCts?.Cancel();
-            _schematicFetchCts = new CancellationTokenSource();
-            var token = _schematicFetchCts.Token;
-            await _schematicFetchLock.WaitAsync();
+            _schematicService.FetchCts?.Cancel();
+            _schematicService.FetchCts?.Dispose();
+            _schematicService.FetchCts = new CancellationTokenSource();
+            var token = _schematicService.FetchCts.Token;
+            await _schematicService.FetchLock.WaitAsync();
 
             try
             {
@@ -2333,66 +2165,43 @@ namespace mindustry_launcher
                     FetchSchematicBtn.Visibility = Visibility.Collapsed;
 
                 if (SchematicBrowserLoadingText != null)
-                {
                     SchematicBrowserLoadingText.Visibility = Visibility.Visible;
-                }
 
                 if (SchematicBrowserListBox != null)
                     SchematicBrowserListBox.Visibility = Visibility.Collapsed;
 
                 ToggleDownloadState(true);
 
-                string cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache");
-                Directory.CreateDirectory(cacheDir);
-                string zipPath = Path.Combine(cacheDir, $"{_currentSchematicRepo.Replace("/", "_")}.zip");
+                string zipPath = _schematicService.GetCacheZipPath();
 
                 if (forceRefresh || !File.Exists(zipPath))
                 {
                     SchematicBrowserLoadingText!.Text = L.Get("schematics.fetching_zip");
-                    string zipUrl = UrlHelper.Format($"https://github.com/{_currentSchematicRepo}/archive/refs/heads/{_currentSchematicBranch}.zip");
-                    using var resp = await _http.GetAsync(zipUrl, HttpCompletionOption.ResponseHeadersRead, token);
-                    using var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    await resp.Content.CopyToAsync(fs);
+                    await _schematicService.DownloadRepoZipAsync(zipPath, token);
                 }
 
                 if (token.IsCancellationRequested) return;
 
                 SchematicBrowserLoadingText!.Text = L.Get("schematics.parsing");
-                var newList = new List<SchematicEntry>();
 
-                await Task.Run(() =>
-                {
-                    using var zip = ZipFile.OpenRead(zipPath);
-                    foreach (var entry in zip.Entries)
-                    {
-                        if (token.IsCancellationRequested) return;
-                        if (entry.Name.EndsWith(".msch", StringComparison.OrdinalIgnoreCase))
-                        {
-                            using var es = entry.Open();
-                            using var ms = new MemoryStream();
-                            es.CopyTo(ms);
-                            string desc = "";
-                            string? realName = ParseMschName(ms.ToArray(), out desc);
-                            newList.Add(new SchematicEntry(realName ?? "", desc, entry.Name, entry.FullName));
-                        }
-                    }
-                }, token);
+                var newList = await Task.Run(() =>
+                    SchematicService.ParseSchematicsFromZip(zipPath, token), token);
 
                 if (token.IsCancellationRequested) return;
 
-                _allOnlineSchematics = newList;
+                _schematicService.AllOnlineSchematics = newList;
                 if (SchematicBrowserListBox != null)
                 {
                     SchematicBrowserListBox.ItemsSource = null;
-                    SchematicBrowserListBox.ItemsSource = _allOnlineSchematics;
+                    SchematicBrowserListBox.ItemsSource = _schematicService.AllOnlineSchematics;
                     SchematicBrowserListBox.Visibility = Visibility.Visible;
                 }
 
                 if (SchematicBrowserLoadingText != null)
                     SchematicBrowserLoadingText.Visibility = Visibility.Collapsed;
             }
-            catch (TaskCanceledException) { }
-            catch (OperationCanceledException) { }
+            catch (TaskCanceledException) { Debug.WriteLine("Schematic fetch cancelled."); }
+            catch (OperationCanceledException) { Debug.WriteLine("Schematic fetch cancelled."); }
             catch (Exception ex)
             {
                 if (SchematicBrowserLoadingText != null && !token.IsCancellationRequested)
@@ -2402,72 +2211,17 @@ namespace mindustry_launcher
             }
             finally
             {
-                _schematicFetchLock.Release();
+                _schematicService.FetchLock.Release();
                 if (!token.IsCancellationRequested)
-                {
                     ToggleDownloadState(false);
-                }
-            }
-        }
-        private string? ParseMschName(byte[] mschBytes, out string description)
-        {
-            description = "";
-            try
-            {
-                using var ms = new MemoryStream(mschBytes);
-                using var reader = new BinaryReader(ms);
-
-                if (reader.ReadByte() != 'm' || reader.ReadByte() != 's'
-                    || reader.ReadByte() != 'c' || reader.ReadByte() != 'h')
-                    return null;
-
-                reader.ReadByte();
-                ms.Seek(2, SeekOrigin.Current);
-
-                using var deflate = new DeflateStream(ms, CompressionMode.Decompress);
-                using var deflatedMs = new MemoryStream();
-                deflate.CopyTo(deflatedMs);
-                deflatedMs.Position = 0;
-
-                using var dataReader = new BinaryReader(deflatedMs);
-
-                short ReadShort()
-                {
-                    return (short)((dataReader.ReadByte() << 8) | dataReader.ReadByte());
-                }
-
-                string ReadString()
-                {
-                    short len = ReadShort();
-                    return Encoding.UTF8.GetString(dataReader.ReadBytes(len));
-                }
-
-                ReadShort();
-                ReadShort();
-                byte tagsCount = dataReader.ReadByte();
-                string? foundName = null;
-
-                for (int i = 0; i < tagsCount; i++)
-                {
-                    string key = ReadString();
-                    string val = ReadString();
-                    if (key == "name") foundName = StripColors(val);
-                    if (key == "description") description = StripColors(val);
-                }
-
-                return foundName;
-            }
-            catch
-            {
-                return null;
             }
         }
         private void SchematicSearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             string k = SchematicSearchBox.Text.ToLower();
             SchematicBrowserListBox.ItemsSource = string.IsNullOrWhiteSpace(k)
-                ? _allOnlineSchematics
-                : _allOnlineSchematics.Where(s =>
+                ? _schematicService.AllOnlineSchematics
+                : _schematicService.AllOnlineSchematics.Where(s =>
                     s.UI_Name.ToLower().Contains(k) || s.UI_Description.ToLower().Contains(k)).ToList();
         }
         private void InstallSchematicFromBrowser_Click(object sender, RoutedEventArgs e)
@@ -2487,13 +2241,13 @@ namespace mindustry_launcher
                     return;
                 }
 
-                _selectedSchematicToInstall = schematic;
+                _schematicService.SelectedSchematicToInstall = schematic;
                 SchematicInstallTitle.Text = L.T("schematics.install_title_with_name", schematic.UI_Name);
                 SchematicInstancesListBox.ItemsSource = all;
 
-                if (_currentInstance != null)
+                if (_versionService.CurrentInstance != null)
                 {
-                    var m = all.FirstOrDefault(i => i.FullPath == _currentInstance.FullPath);
+                    var m = all.FirstOrDefault(i => i.FullPath == _versionService.CurrentInstance.FullPath);
                     if (m != null)
                         SchematicInstancesListBox.SelectedItem = m;
                 }
@@ -2514,7 +2268,7 @@ namespace mindustry_launcher
         }
         private void ConfirmSchematicInstall_Click(object sender, RoutedEventArgs e)
         {
-            if (_selectedSchematicToInstall == null || SchematicInstancesListBox.SelectedItem is not GameInstanceInfo target)
+            if (_schematicService.SelectedSchematicToInstall == null || SchematicInstancesListBox.SelectedItem is not GameInstanceInfo target)
                 return;
 
             try
@@ -2522,19 +2276,19 @@ namespace mindustry_launcher
                 LoadVersionConfig(target.FullPath);
 
                 string schematicDir = Path.Combine(
-                    _currentVersionConfig.UseIsolation
+                    _versionService.CurrentVersionConfig.UseIsolation
                         ? Path.Combine(target.FullPath, "data")
                         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mindustry"),
                     "schematics");
                 Directory.CreateDirectory(schematicDir);
 
-                string targetFile = Path.Combine(schematicDir, _selectedSchematicToInstall.FileName);
+                string targetFile = Path.Combine(schematicDir, _schematicService.SelectedSchematicToInstall.FileName);
                 string cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache");
-                string zipPath = Path.Combine(cacheDir, $"{_currentSchematicRepo.Replace("/", "_")}.zip");
+                string zipPath = Path.Combine(cacheDir, $"{_schematicService.CurrentRepo.Replace("/", "_")}.zip");
 
                 using var fs = File.OpenRead(zipPath);
                 using var zip = new ZipArchive(fs, ZipArchiveMode.Read);
-                var entry = zip.GetEntry(_selectedSchematicToInstall.ZipEntryFullName);
+                var entry = zip.GetEntry(_schematicService.SelectedSchematicToInstall.ZipEntryFullName);
                 if (entry != null)
                 {
                     entry.ExtractToFile(targetFile, true);
@@ -2604,7 +2358,7 @@ namespace mindustry_launcher
         {
             if (sender is RadioButton rb && rb.Tag is string repo)
             {
-                _currentDownloadRepo = repo;
+                _downloadService.CurrentDownloadRepo = repo;
                 if (DownloadSourceTitle != null)
                 {
                     string sourceName = rb == RbOfficial ? L.Get("download.official")
@@ -2628,31 +2382,16 @@ namespace mindustry_launcher
 
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                string apiUrl = UrlHelper.Format($"https://api.github.com/repos/{_currentDownloadRepo}/releases", true);
-                var rels = await _http.GetFromJsonAsync<List<GitHubRelease>>(apiUrl, cts.Token);
+                var list = await _downloadService.FetchFilteredReleasesAsync();
 
-                if (rels != null)
+                if (RemoteVersionListBox != null)
                 {
-                    var list = rels.Where(r =>
-                        r.Assets != null && r.Assets.Any(a =>
-                            a.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                            && !a.Name.Contains("server", StringComparison.OrdinalIgnoreCase)
-                            && !a.Name.Contains("android", StringComparison.OrdinalIgnoreCase)
-                            && !a.Name.Contains("dependencies", StringComparison.OrdinalIgnoreCase)
-                            && !a.Name.Contains("javadoc", StringComparison.OrdinalIgnoreCase)
-                            && !a.Name.Contains("sources", StringComparison.OrdinalIgnoreCase))
-                    ).ToList();
-
-                    if (RemoteVersionListBox != null)
-                    {
-                        RemoteVersionListBox.ItemsSource = list;
-                        RemoteVersionListBox.Visibility = Visibility.Visible;
-                    }
-
-                    if (RemoteVersionLoadingText != null)
-                        RemoteVersionLoadingText.Visibility = Visibility.Collapsed;
+                    RemoteVersionListBox.ItemsSource = list;
+                    RemoteVersionListBox.Visibility = Visibility.Visible;
                 }
+
+                if (RemoteVersionLoadingText != null)
+                    RemoteVersionLoadingText.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
@@ -2669,7 +2408,7 @@ namespace mindustry_launcher
                 ReleaseNotesText.Text = string.IsNullOrWhiteSpace(rel.Body)
                     ? L.Get("mods.blank_description")
                     : rel.Body;
-                _currentDetailUrl = $"https://github.com/{_currentDownloadRepo}/releases/tag/{rel.TagName}";
+                _currentDetailUrl = $"https://github.com/{_downloadService.CurrentDownloadRepo}/releases/tag/{rel.TagName}";
                 OpenRepoBtn.Visibility = Visibility.Visible;
                 ExportCrashBtn.Visibility = Visibility.Collapsed;
                 AnimateFade(ReleaseNotesOverlay, true);
@@ -2692,7 +2431,7 @@ namespace mindustry_launcher
         }
         private async void DownloadVersion_Click(object sender, RoutedEventArgs e)
         {
-            if (_config.ManagedFolders.Count == 0)
+            if (_configService.GetConfig().ManagedFolders.Count == 0)
             {
                 ShowDialog(L.Get("dialog.info"), L.Get("status.import_folder_first"));
                 return;
@@ -2708,38 +2447,19 @@ namespace mindustry_launcher
                 return;
             }
 
-            var candidates = rel.Assets?.Where(a =>
-                a.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                && !a.Name.Contains("server", StringComparison.OrdinalIgnoreCase)
-                && !a.Name.Contains("android", StringComparison.OrdinalIgnoreCase)
-                && !a.Name.Contains("dependencies", StringComparison.OrdinalIgnoreCase)
-                && !a.Name.Contains("javadoc", StringComparison.OrdinalIgnoreCase)
-                && !a.Name.Contains("sources", StringComparison.OrdinalIgnoreCase)
-            ).ToList();
+            var candidates = RemoteDownloadService.FilterClientAssets(rel);
 
-            if (candidates == null || candidates.Count == 0)
+            if (candidates.Count == 0)
             {
                 ShowDialog(L.Get("dialog.info"), L.Get("download.no_client"));
                 return;
             }
 
             GitHubAsset? asset = null;
-            if (_currentDownloadRepo.Contains("antigrief", StringComparison.OrdinalIgnoreCase))
+            if (_downloadService.CurrentDownloadRepo.Contains("antigrief", StringComparison.OrdinalIgnoreCase))
             {
-                var audio = candidates.FirstOrDefault(a =>
-                    a.Name.Contains("audio", StringComparison.OrdinalIgnoreCase)
-                    || a.Name.Contains("voice", StringComparison.OrdinalIgnoreCase));
-
-                var standard = candidates.FirstOrDefault(a =>
-                    (a.Name.Contains("desktop", StringComparison.OrdinalIgnoreCase)
-                     || a.Name.Contains("client", StringComparison.OrdinalIgnoreCase))
-                    && !a.Name.Contains("audio", StringComparison.OrdinalIgnoreCase)
-                    && !a.Name.Contains("voice", StringComparison.OrdinalIgnoreCase));
-
-                if (standard == null)
-                    standard = candidates.FirstOrDefault(a =>
-                        !a.Name.Contains("audio", StringComparison.OrdinalIgnoreCase)
-                        && !a.Name.Contains("voice", StringComparison.OrdinalIgnoreCase));
+                var audio = RemoteDownloadService.SelectFooAudioAsset(candidates);
+                var standard = RemoteDownloadService.SelectBestAsset(candidates, _downloadService.CurrentDownloadRepo);
 
                 if (audio != null && standard != null)
                 {
@@ -2753,28 +2473,7 @@ namespace mindustry_launcher
                 }
             }
 
-            if (asset == null)
-            {
-                asset = candidates.FirstOrDefault(a => a.Name.Equals("Mindustry.jar", StringComparison.OrdinalIgnoreCase));
-                if (asset == null)
-                {
-                    asset = candidates.FirstOrDefault(a =>
-                        a.Name.Contains("desktop", StringComparison.OrdinalIgnoreCase)
-                        || a.Name.Contains("Desktop")
-                        || a.Name.Contains("client", StringComparison.OrdinalIgnoreCase)
-                        || a.Name.Contains("windows", StringComparison.OrdinalIgnoreCase));
-
-                    if (asset == null)
-                    {
-                        var nonModAssets = candidates.Where(a =>
-                            !a.Name.Contains("mod", StringComparison.OrdinalIgnoreCase)
-                            && !a.Name.Contains("addon", StringComparison.OrdinalIgnoreCase)
-                            && !a.Name.Contains("plugin", StringComparison.OrdinalIgnoreCase)
-                        ).ToList();
-                        asset = nonModAssets.Count > 0 ? nonModAssets[0] : candidates[0];
-                    }
-                }
-            }
+            asset ??= RemoteDownloadService.SelectBestAsset(candidates, _downloadService.CurrentDownloadRepo);
 
             if (asset == null)
             {
@@ -2782,16 +2481,7 @@ namespace mindustry_launcher
                 return;
             }
 
-            string folder = Path.Combine(_config.ManagedFolders[0], "Versions",
-                rel.TagName + (_currentDownloadRepo.Contains("TinyLake") ? L.Get("download.suffix_x")
-                    : (_currentDownloadRepo.Contains("antigrief") ? L.Get("download.suffix_foo") : "")));
-
-            int c = 1;
-            string baseF = folder;
-            while (Directory.Exists(folder))
-            {
-                folder = $"{baseF}-{c++}";
-            }
+            string folder = _downloadService.GetDownloadFolderName(rel.TagName);
 
             Directory.CreateDirectory(folder);
             DownloadPanel.Visibility = Visibility.Visible;
@@ -2803,7 +2493,7 @@ namespace mindustry_launcher
                     DownloadProgressBar.Value = p;
                     StatusText.Text = L.T("mods.install_downloading", p);
                 });
-                await DownloadFileAsync(UrlHelper.Format(asset.BrowserDownloadUrl), Path.Combine(folder, "Mindustry.jar"), prog);
+                await _downloadService.DownloadFileAsync(UrlHelper.Format(asset.BrowserDownloadUrl), Path.Combine(folder, "Mindustry.jar"), prog);
                 ShowDialog(L.Get("dialog.success"), L.Get("download.success"), DialogIcon.Info);
                 StatusText.Text = L.Get("download.success");
             }
@@ -2818,60 +2508,23 @@ namespace mindustry_launcher
                 ToggleDownloadState(false);
             }
         }
-        private async Task DownloadFileAsync(string url, string p, IProgress<double> prog)
-        {
-            using var resp = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-            var total = resp.Content.Headers.ContentLength ?? -1L;
-            using var rs = await resp.Content.ReadAsStreamAsync();
-            using var ws = File.Open(p, FileMode.Create);
-            var buf = new byte[8192];
-            long read = 0;
-            int r;
-            while ((r = await rs.ReadAsync(buf, 0, buf.Length)) != 0)
-            {
-                await ws.WriteAsync(buf, 0, r);
-                read += r;
-                if (total != -1)
-                    prog.Report((double)read / total * 100);
-            }
-        }
-
         private async void AutoScanGlobalJava_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                ScanGlobalJavaBtn.Content = L.Get("settings.scanning");
-                ScanGlobalJavaBtn.IsEnabled = false;
-                string currentPath = GlobalJavaComboBox.Text;
-                var javas = await Task.Run(() => JavaScanner.Scan(currentPath, true));
-                GlobalJavaComboBox.ItemsSource = javas;
-                if (javas.Count > 0)
-                    GlobalJavaComboBox.Text = javas[0].Path;
-                else
-                    ShowDialog(L.Get("dialog.mdl"), L.Get("settings.no_java"), DialogIcon.Info);
-            }
-            catch (Exception ex)
-            {
-                ShowDialog(L.Get("dialog.error"), L.T("settings.scan_error", ex.Message), DialogIcon.Error);
-            }
-            finally
-            {
-                ScanGlobalJavaBtn.Content = L.Get("settings.rescan");
-                ScanGlobalJavaBtn.IsEnabled = true;
-            }
-        }
+            => await AutoScanJava(GlobalJavaComboBox, ScanGlobalJavaBtn);
 
         private async void AutoScanVersionJava_Click(object sender, RoutedEventArgs e)
+            => await AutoScanJava(VSettingsJavaComboBox, ScanVersionJavaBtn);
+
+        private async Task AutoScanJava(ComboBox comboBox, Button scanBtn)
         {
             try
             {
-                ScanVersionJavaBtn.Content = L.Get("settings.scanning");
-                ScanVersionJavaBtn.IsEnabled = false;
-                string currentPath = VSettingsJavaComboBox.Text;
+                scanBtn.Content = L.Get("settings.scanning");
+                scanBtn.IsEnabled = false;
+                string currentPath = comboBox.Text;
                 var javas = await Task.Run(() => JavaScanner.Scan(currentPath, true));
-                VSettingsJavaComboBox.ItemsSource = javas;
+                comboBox.ItemsSource = javas;
                 if (javas.Count > 0)
-                    VSettingsJavaComboBox.Text = javas[0].Path;
+                    comboBox.Text = javas[0].Path;
                 else
                     ShowDialog(L.Get("dialog.mdl"), L.Get("settings.no_java"), DialogIcon.Info);
             }
@@ -2881,8 +2534,8 @@ namespace mindustry_launcher
             }
             finally
             {
-                ScanVersionJavaBtn.Content = L.Get("settings.rescan");
-                ScanVersionJavaBtn.IsEnabled = true;
+                scanBtn.Content = L.Get("settings.rescan");
+                scanBtn.IsEnabled = true;
             }
         }
 
@@ -2892,58 +2545,20 @@ namespace mindustry_launcher
             if (d.ShowDialog() == true)
                 GlobalJavaComboBox.Text = d.FileName;
         }
-        private void LoadConfig()
-        {
-            if (File.Exists(ConfigFilePath))
-            {
-                try
-                {
-                    _config = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(ConfigFilePath)) ?? new AppConfig();
-                }
-                catch { }
-            }
-        }
-
-        private void SaveConfig()
-        {
-            try { File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(_config)); } catch { }
-        }
-
         private void LoadVersionConfig(string p)
         {
-            string cp = Path.Combine(p, "mdl_instance_config.json");
-            if (File.Exists(cp))
-            {
-                try
-                {
-                    _currentVersionConfig = JsonSerializer.Deserialize<VersionConfig>(File.ReadAllText(cp)) ?? new VersionConfig();
-                }
-                catch
-                {
-                    _currentVersionConfig = new VersionConfig();
-                }
-            }
-            else
-            {
-                _currentVersionConfig = new VersionConfig();
-                _currentVersionConfig.CustomRamMB = _config.GlobalRamMB;
-            }
+            _versionService.LoadVersionConfig(p);
         }
 
         private void SaveVersionConfig(string p)
         {
-            _currentVersionConfig.CustomJavaPath = VSettingsJavaComboBox.Text;
-            _currentVersionConfig.CustomJvmArgs = VSettingsJvmArgsBox.Text;
-            _currentVersionConfig.UseIsolation = VSettingsIsolationBox.SelectedIndex == 0;
+            _versionService.CurrentVersionConfig.CustomJavaPath = VSettingsJavaComboBox.Text;
+            _versionService.CurrentVersionConfig.CustomJvmArgs = VSettingsJvmArgsBox.Text;
+            _versionService.CurrentVersionConfig.UseIsolation = VSettingsIsolationBox.SelectedIndex == 0;
             if (VSettingsRamSlider != null)
-                _currentVersionConfig.CustomRamMB = (int)VSettingsRamSlider.Value;
+                _versionService.CurrentVersionConfig.CustomRamMB = (int)VSettingsRamSlider.Value;
 
-            string cp = Path.Combine(p, "mdl_instance_config.json");
-            try
-            {
-                File.WriteAllText(cp, JsonSerializer.Serialize(_currentVersionConfig));
-            }
-            catch { }
+            VersionManagementService.SaveVersionConfigToFile(p, _versionService.CurrentVersionConfig);
         }
 
     }

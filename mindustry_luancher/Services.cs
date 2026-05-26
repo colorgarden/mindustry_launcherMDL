@@ -71,7 +71,7 @@ public static class HardwareInfo
             mem.dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
             if (GlobalMemoryStatusEx(ref mem)) return (int)(mem.ullTotalPhys / (1024 * 1024));
         }
-        catch { }
+        catch (Exception ex) { Debug.WriteLine($"GlobalMemoryStatusEx failed: {ex.Message}"); }
         return 16384;
     }
 }
@@ -205,12 +205,12 @@ public static class JavaScanner
         void Add(string? p)
         {
             if (string.IsNullOrWhiteSpace(p) || p.Contains("\\javapath", StringComparison.OrdinalIgnoreCase)) return;
-            try { if (File.Exists(p)) paths.Add(Path.GetFullPath(p)); } catch { }
+            try { if (File.Exists(p)) paths.Add(Path.GetFullPath(p)); } catch (Exception ex) { Debug.WriteLine($"Failed to check Java path '{p}': {ex.Message}"); }
         }
 
         void Walk(string dir, int maxDepth = 2, int depth = 0)
         {
-            try { if (depth > maxDepth || !Directory.Exists(dir)) return; } catch { return; }
+            try { if (depth > maxDepth || !Directory.Exists(dir)) return; } catch (Exception ex) { Debug.WriteLine($"Failed to check directory '{dir}': {ex.Message}"); return; }
             try
             {
                 Add(Path.Combine(dir, "bin", "javaw.exe"));
@@ -224,7 +224,7 @@ public static class JavaScanner
                         Walk(sub, maxDepth, depth + 1);
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine($"Failed to enumerate Java directories: {ex.Message}"); }
         }
 
         Add(currentConfigPath);
@@ -244,7 +244,7 @@ public static class JavaScanner
                                     if (!string.IsNullOrEmpty(home)) { Add(Path.Combine(home, "bin", "javaw.exe")); Add(Path.Combine(home, "bin", "java.exe")); }
                                 }
         }
-        catch { }
+        catch (Exception ex) { Debug.WriteLine($"Failed to scan registry for Java: {ex.Message}"); }
 
         var jh = Environment.GetEnvironmentVariable("JAVA_HOME");
         if (!string.IsNullOrEmpty(jh)) Walk(jh, 1);
@@ -252,7 +252,7 @@ public static class JavaScanner
         var pe = Environment.GetEnvironmentVariable("PATH");
         if (!string.IsNullOrEmpty(pe))
             foreach (var p in pe.Split(Path.PathSeparator))
-                try { Add(Path.Combine(p.Trim('"', ' '), "javaw.exe")); } catch { }
+                try { Add(Path.Combine(p.Trim('"', ' '), "javaw.exe")); } catch (Exception ex) { Debug.WriteLine($"Failed to scan PATH entry for Java: {ex.Message}"); }
 
         var appData = Environment.GetEnvironmentVariable("APPDATA");
         var localAppData = Environment.GetEnvironmentVariable("LocalAppData");
@@ -277,7 +277,7 @@ public static class JavaScanner
                 dirs.Add(r + ".minecraft\\runtime"); dirs.Add(r + "MC\\runtime");
             }
         }
-        catch { }
+        catch (Exception ex) { Debug.WriteLine($"Failed to scan drives for Java: {ex.Message}"); }
 
         var cwd = AppDomain.CurrentDomain.BaseDirectory;
         dirs.Add(cwd + "runtime"); dirs.Add(cwd + "java"); dirs.Add(cwd + "jre");
@@ -326,7 +326,7 @@ public static class JavaScanner
                 info.Version = $"{type} {ver2} ({ver2}.0)";
             }
         }
-        catch { }
+        catch (Exception ex) { Debug.WriteLine($"Failed to get Java version for '{path}': {ex.Message}"); }
         return info;
     }
 }
