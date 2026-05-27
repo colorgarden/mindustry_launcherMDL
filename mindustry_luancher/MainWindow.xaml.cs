@@ -363,6 +363,7 @@ namespace mindustry_launcher
                 });
             });
             LoadGameIconAsync();
+            _isInitialized = true;
         }
 
         // ==========================================
@@ -756,7 +757,15 @@ namespace mindustry_launcher
             else if (idx == 6)
                 ActivateNavButton(NavMoreBtn);
 
+            // 子标签栏：仅下载页(idx=1-3) 显示
             SubTabBar.Visibility = (idx >= 1 && idx <= 3) ? Visibility.Visible : Visibility.Collapsed;
+
+            // 设置默认子标签
+            _suppressSubTabEvent = true;
+            if (idx == 1)
+                SubTabDownloadSource.IsChecked = true;
+            _suppressSubTabEvent = false;
+
         }
 
         private void SmoothScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -830,6 +839,7 @@ namespace mindustry_launcher
         private void NavLaunch_Click(object sender, RoutedEventArgs e)
         {
             SwitchTab(0);
+            ShowLaunchSubPanel(10);
         }
 
         private void NavDownload_Click(object sender, RoutedEventArgs e)
@@ -838,10 +848,16 @@ namespace mindustry_launcher
             SwitchTab(1);
         }
 
-        private async void DownloadSubTab_Checked(object sender, RoutedEventArgs e)
+        // 统一的子标签处理（启动页 + 下载页）
+        private async void SubTab_Checked(object sender, RoutedEventArgs e)
         {
-            if (sender is RadioButton rb && rb.Tag is string tagStr && int.TryParse(tagStr, out int idx))
+            if (_suppressSubTabEvent || !_isInitialized) return;
+            if (sender is not RadioButton rb || rb.Tag is not string tagStr || !int.TryParse(tagStr, out int idx))
+                return;
+
+            if (idx >= 1 && idx <= 3)
             {
+                // 下载页子标签
                 SwitchTab(idx);
                 if (idx == 2 && _modService.AllOnlineMods.Count == 0)
                     await FetchModRegistryAsync();
@@ -852,6 +868,42 @@ namespace mindustry_launcher
                         _ = FetchSchematicsAsync(false);
                 }
             }
+        }
+
+        private void ShowLaunchSubPanel(int subIdx)
+        {
+            FrameworkElement targetPanel = subIdx switch
+            {
+                11 => LaunchVersionSelectPanel,
+                12 => LaunchVersionSettingsPanel,
+                _ => LaunchOverviewPanel
+            };
+
+            if (targetPanel.Visibility == Visibility.Visible) return;
+
+            // 淡出当前可见面板
+            foreach (var p in new FrameworkElement[] { LaunchOverviewPanel, LaunchVersionSelectPanel, LaunchVersionSettingsPanel })
+            {
+                if (p.Visibility == Visibility.Visible)
+                    AnimateFade(p, false);
+            }
+
+            // 淡入目标面板
+            AnimateFade(targetPanel, true);
+
+            // 标题栏返回按钮：仅在子面板中显示，同时隐藏 MDL 文字避免重叠
+            LaunchBackBtn.Visibility = (subIdx != 10) ? Visibility.Visible : Visibility.Collapsed;
+            TitleBarMDL.Visibility = (subIdx != 10) ? Visibility.Collapsed : Visibility.Visible;
+
+            if (subIdx == 11)
+                OpenVersionSelect_Click(null!, null!);
+            else if (subIdx == 12)
+                OpenVersionSettings_Click(null!, null!);
+        }
+
+        private void LaunchSubPanelBack_Click(object sender, RoutedEventArgs e)
+        {
+            ShowLaunchSubPanel(10);
         }
 
         // 新增：联机按钮点击 (传入 false 走缓存)
@@ -950,20 +1002,18 @@ namespace mindustry_launcher
 
         private void CloseOverlays_Click(object sender, RoutedEventArgs e)
         {
-            if (VersionSettingsOverlay.Visibility == Visibility.Visible && _versionService.CurrentInstance != null)
-            {
+            // 保存版本设置（如果当前在版本设置子面板中）
+            if (LaunchVersionSettingsPanel.Visibility == Visibility.Visible && _versionService.CurrentInstance != null)
                 SaveVersionConfig(_versionService.CurrentInstance.FullPath);
-                AnimateFade(VersionSettingsOverlay, false);
-            }
-
-            if (VersionSelectOverlay.Visibility == Visibility.Visible)
-                AnimateFade(VersionSelectOverlay, false);
 
             if (ReleaseNotesOverlay.Visibility == Visibility.Visible)
                 AnimateFade(ReleaseNotesOverlay, false);
 
             if (SchematicInstallOverlay.Visibility == Visibility.Visible)
                 AnimateFade(SchematicInstallOverlay, false);
+
+            // 切回概览
+            ShowLaunchSubPanel(10);
 
             UpdateMainUI();
         }
@@ -1276,7 +1326,7 @@ namespace mindustry_launcher
         private void RefreshVersionSettingsUI()
         {
             if (_versionService.CurrentInstance != null)
-                VSettingsTitle.Text = L.T("vsettings.title_with_name", _versionService.CurrentInstance.Name);
+                VSettingsTitle.Text = L.Get("vsettings.title");
             else
                 VSettingsTitle.Text = L.Get("vsettings.title");
 
@@ -1333,6 +1383,8 @@ namespace mindustry_launcher
 
         private bool _suppressAutoRamEvent = false;
         private bool _suppressLangEvent = false;
+        private bool _suppressSubTabEvent = false;
+        private bool _isInitialized = false;
         private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_suppressLangEvent) return;
@@ -1359,7 +1411,7 @@ namespace mindustry_launcher
             FolderListBox.ItemsSource = null;
             FolderListBox.ItemsSource = _configService.GetConfig().ManagedFolders;
             if (_configService.GetConfig().ManagedFolders.Count > 0) FolderListBox.SelectedIndex = 0;
-            AnimateFade(VersionSelectOverlay, true);
+            ShowLaunchSubPanel(11);
         }
 
         private void AddNewFolder_Click(object sender, RoutedEventArgs e)
@@ -1446,7 +1498,7 @@ namespace mindustry_launcher
                 return;
             }
             LoadVersionConfig(_versionService.CurrentInstance.FullPath);
-            VSettingsTitle.Text = L.T("vsettings.title_with_name", _versionService.CurrentInstance.Name);
+            VSettingsTitle.Text = L.Get("vsettings.title");
             VSettingsIsolationBox.SelectedIndex = _versionService.CurrentVersionConfig.UseIsolation ? 0 : 1;
             VSettingsJavaComboBox.Text = _versionService.CurrentVersionConfig.CustomJavaPath;
             VSettingsJvmArgsBox.Text = _versionService.CurrentVersionConfig.CustomJvmArgs;
@@ -1454,7 +1506,7 @@ namespace mindustry_launcher
             VSettingsRamSlider.Value = Math.Min(_versionService.CurrentVersionConfig.CustomRamMB, GlobalRamSlider.Maximum);
             CancelRename_Click(null!, null!);
             VSidebarConfig_Click(null!, null!);
-            AnimateFade(VersionSettingsOverlay, true);
+            ShowLaunchSubPanel(12);
         }
 
         private void ResetSidebarStyles()
@@ -1605,7 +1657,7 @@ namespace mindustry_launcher
                 }
                 OverviewVersionName.Text = nn;
                 OverviewVersionPath.Text = np;
-                VSettingsTitle.Text = L.T("vsettings.title_with_name", nn);
+                VSettingsTitle.Text = L.Get("vsettings.title");
                 UpdateMainUI();
                 FolderListBox_SelectionChanged(null!, null!);
                 CancelRename_Click(null!, null!);
