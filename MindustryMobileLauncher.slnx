@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MindustryLauncher/MindustryLauncher.csproj" />
+    <Project Path="src/MindustryShared/MindustryShared.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MindustryLauncher.Pages.ModsPage"
+             Style="{StaticResource PageStyle}"
+             Title="Mods">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="12,16,12,0">
+
+        <!-- Search bar -->
+        <Entry x:Name="SearchEntry"
+               Grid.Row="0"
+               Placeholder="Search mods..."
+               Style="{StaticResource SearchEntry}"
+               TextChanged="OnSearchTextChanged" />
+
+        <!-- Mod list -->
+        <CollectionView x:Name="ModList"
+                        Grid.Row="1"
+                        SelectionMode="Single"
+                        SelectionChanged="OnModSelected">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Style="{StaticResource CardFrame}" Margin="0,0,0,8">
+                        <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="12">
+                            <Image Source="{Binding IconUrl}"
+                                   HeightRequest="48"
+                                   WidthRequest="48"
+                                   Aspect="AspectFill"
+                                   Grid.Column="0">
+                                <Image.Clip>
+                                    <RoundRectangleGeometry CornerRadius="8"
+                                        Rect="0,0,48,48" />
+                                </Image.Clip>
+                            </Image>
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                <Label Text="{Binding Name}"
+                                       FontSize="15"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource OnSurface}" />
+                                <Label Text="{Binding AuthorFormatted}"
+                                       FontSize="12"
+                                       TextColor="{StaticResource Outline}" />
+                                <Label Text="{Binding StarsFormatted}"
+                                       FontSize="12"
+                                       TextColor="{StaticResource WarningOrange}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="2"
+                                    Text="INSTALL"
+                                    Style="{StaticResource PrimaryButton}"
+                                    FontSize="11"
+                                    HeightRequest="32"
+                                    Padding="12,0"
+                                    VerticalOptions="Center"
+                                    Clicked="OnInstallMod" />
+                        </Grid>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Padding="32" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Label Text="No mods found"
+                           FontSize="16"
+                           TextColor="{StaticResource Outline}"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+        <!-- Loading / Status -->
+        <ActivityIndicator x:Name="LoadingIndicator"
+                           Grid.Row="1"
+                           IsRunning="False"
+                           IsVisible="False"
+                           Color="{StaticResource Primary}"
+                           HeightRequest="48"
+                           WidthRequest="48"
+                           VerticalOptions="Center"
+                           HorizontalOptions="Center" />
+
+        <!-- Bottom bar -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" Padding="0,8" ColumnSpacing="10">
+            <Button x:Name="RefreshBtn"
+                    Text="Refresh List"
+                    Style="{StaticResource OutlinedButton}"
+                    Grid.Column="0"
+                    Clicked="OnRefresh" />
+            <Button x:Name="LocalModsBtn"
+                    Text="Local Mods"
+                    Style="{StaticResource PrimaryButton}"
+                    Grid.Column="1"
+                    Clicked="OnShowLocal" />
+        </Grid>
+    </Grid>
+</ContentPage>

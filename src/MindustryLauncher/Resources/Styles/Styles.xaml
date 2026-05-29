@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Card Frame -->
+    <Style x:Key="CardFrame" TargetType="Frame">
+        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
+        <Setter Property="BorderColor" Value="Transparent" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="HasShadow" Value="True" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <!-- Primary Button (filled) -->
+    <Style x:Key="PrimaryButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="CornerRadius" Value="24" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="Padding" Value="24,0" />
+    </Style>
+
+    <!-- Outlined Button -->
+    <Style x:Key="OutlinedButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{StaticResource Primary}" />
+        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
+        <Setter Property="BorderWidth" Value="1.5" />
+        <Setter Property="CornerRadius" Value="24" />
+        <Setter Property="HeightRequest" Value="44" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Padding" Value="16,0" />
+    </Style>
+
+    <!-- Section Title -->
+    <Style x:Key="SectionTitle" TargetType="Label">
+        <Setter Property="TextColor" Value="{StaticResource OnSurface}" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="Margin" Value="0,16,0,8" />
+    </Style>
+
+    <!-- Body text -->
+    <Style x:Key="BodyText" TargetType="Label">
+        <Setter Property="TextColor" Value="{StaticResource OnSurfaceVariant}" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <!-- List item subtitle -->
+    <Style x:Key="SubtitleText" TargetType="Label">
+        <Setter Property="TextColor" Value="{StaticResource Outline}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- Search Entry -->
+    <Style x:Key="SearchEntry" TargetType="Entry">
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceContainer}" />
+        <Setter Property="TextColor" Value="{StaticResource OnSurface}" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource Outline}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="HeightRequest" Value="44" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <!-- Page style -->
+    <Style x:Key="PageStyle" TargetType="ContentPage">
+        <Setter Property="BackgroundColor" Value="{StaticResource PageBackground}" />
+    </Style>
+
+    <!-- Horizontal divider -->
+    <Style x:Key="Divider" TargetType="BoxView">
+        <Setter Property="HeightRequest" Value="1" />
+        <Setter Property="Color" Value="{StaticResource OutlineVariant}" />
+        <Setter Property="Margin" Value="0" />
+    </Style>
+
+</ResourceDictionary>

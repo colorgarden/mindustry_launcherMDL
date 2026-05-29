@@ -1,0 +1,31 @@
+# Android build
+android/.gradle/
+android/.kotlin/
+android/app/build/
+android/app/.cxx/
+android/build/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+arc_build/temp/
+arc_build/build/
+arc_build/out/
+temp_mindustry.jar
+
+# .NET build
+**/bin/
+**/obj/
+
+# ZL2 fork
+zl2_fork/
+

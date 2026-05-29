@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MindustryLauncher.Pages.LaunchPage"
+             Style="{StaticResource PageStyle}"
+             Title="MDL">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Manage" Clicked="OnManageToolbar" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView Grid.Row="0" Padding="12,16,12,0">
+            <VerticalStackLayout Spacing="12">
+
+                <!-- Game header card -->
+                <Frame Style="{StaticResource CardFrame}">
+                    <VerticalStackLayout Spacing="16" HorizontalOptions="Center">
+                        <Image x:Name="GameIcon"
+                               Source="dotnet_bot.png"
+                               HeightRequest="72"
+                               WidthRequest="72"
+                               HorizontalOptions="Center" />
+                        <Label x:Name="GameNameText"
+                               Text="Mindustry"
+                               FontSize="22"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"
+                               TextColor="{StaticResource OnSurface}" />
+                        <Label x:Name="VersionNameText"
+                               Text="No version selected"
+                               FontSize="13"
+                               HorizontalOptions="Center"
+                               TextColor="{StaticResource Outline}" />
+                        <Button x:Name="LaunchButton"
+                                Text="▶  Launch"
+                                Style="{StaticResource PrimaryButton}"
+                                Clicked="OnLaunchClicked"
+                                HorizontalOptions="Center"
+                                WidthRequest="200" />
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Select version card -->
+                <Frame Style="{StaticResource CardFrame}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Select Version"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource OnSurface}" />
+                        <CollectionView x:Name="VersionList"
+                                        SelectionMode="Single"
+                                        SelectionChanged="OnVersionSelected"
+                                        HeightRequest="200">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <VerticalStackLayout Padding="12,12" Spacing="2">
+                                        <Label Text="{Binding Name}"
+                                               FontSize="15"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource OnSurface}" />
+                                        <Label Text="{Binding FullPath}"
+                                               FontSize="11"
+                                               TextColor="{StaticResource Outline}"
+                                               LineBreakMode="TailTruncation" />
+                                        <BoxView Style="{StaticResource Divider}"
+                                                 Margin="0,8,0,0" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                            <CollectionView.EmptyView>
+                                <VerticalStackLayout Padding="16" Spacing="8" HorizontalOptions="Center">
+                                    <Label Text="No versions yet"
+                                           FontSize="15"
+                                           TextColor="{StaticResource Outline}"
+                                           HorizontalOptions="Center" />
+                                    <Button Text="Download a version"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Clicked="OnDownloadNew" />
+                                </VerticalStackLayout>
+                            </CollectionView.EmptyView>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Quick actions card -->
+                <Frame Style="{StaticResource CardFrame}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Quick Actions"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource OnSurface}" />
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
+                              ColumnSpacing="10" RowSpacing="10">
+                            <Button Text="↓ Download"
+                                    Style="{StaticResource OutlinedButton}"
+                                    Grid.Column="0" Grid.Row="0"
+                                    Clicked="OnDownloadNew" />
+                            <Button Text="+ Import"
+                                    Style="{StaticResource OutlinedButton}"
+                                    Grid.Column="1" Grid.Row="0"
+                                    Clicked="OnImport" />
+                            <Button x:Name="VersionSettingsBtn"
+                                    Text="Settings"
+                                    Style="{StaticResource OutlinedButton}"
+                                    Grid.Column="0" Grid.Row="1"
+                                    Clicked="OnVersionSettings" />
+                            <Button x:Name="OpenFolderBtn"
+                                    Text="Files"
+                                    Style="{StaticResource OutlinedButton}"
+                                    Grid.Column="1" Grid.Row="1"
+                                    Clicked="OnOpenFolder" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Status bar -->
+                <Label x:Name="StatusLabel"
+                       Text=""
+                       FontSize="12"
+                       TextColor="{StaticResource Outline}"
+                       HorizontalOptions="Center"
+                       Margin="0,0,0,16" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Download progress bar (hidden by default) -->
+        <Frame x:Name="DownloadPanel"
+               Grid.Row="1"
+               Margin="12,0,12,8"
+               Style="{StaticResource CardFrame}"
+               IsVisible="False">
+            <VerticalStackLayout Spacing="8">
+                <Label x:Name="DownloadStatusText"
+                       Text="Preparing..."
+                       FontSize="14"
+                       TextColor="{StaticResource OnSurface}" />
+                <ProgressBar x:Name="DownloadProgress" Progress="0" />
+            </VerticalStackLayout>
+        </Frame>
+    </Grid>
+</ContentPage>

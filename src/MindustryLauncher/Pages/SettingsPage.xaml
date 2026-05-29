@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MindustryLauncher.Pages.SettingsPage"
+             Style="{StaticResource PageStyle}"
+             Title="Settings">
+
+    <ScrollView Padding="12,16">
+        <VerticalStackLayout Spacing="12">
+
+            <!-- Proxy Node -->
+            <Frame Style="{StaticResource CardFrame}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Download Proxy Node"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource OnSurface}" />
+                    <Label Text="Switch nodes if downloads fail"
+                           FontSize="12"
+                           TextColor="{StaticResource Outline}" />
+                    <Picker x:Name="ProxyPicker" SelectedIndexChanged="OnProxyChanged">
+                        <Picker.ItemsSource>
+                            <x:Array Type="{x:Type x:String}">
+                                <x:String>Node 0: Direct (GitHub)</x:String>
+                                <x:String>Node 1: GhFast (Recommended)</x:String>
+                                <x:String>Node 2: GhProxy</x:String>
+                                <x:String>Node 3: KkGitHub</x:String>
+                                <x:String>Node 4: JsDelivr CDN</x:String>
+                                <x:String>Node 5: gh.llkk.cc</x:String>
+                            </x:Array>
+                        </Picker.ItemsSource>
+                    </Picker>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Language -->
+            <Frame Style="{StaticResource CardFrame}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Language / 语言"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource OnSurface}" />
+                    <Picker x:Name="LanguagePicker" SelectedIndexChanged="OnLanguageChanged">
+                        <Picker.ItemsSource>
+                            <x:Array Type="{x:Type x:String}">
+                                <x:String>System Default</x:String>
+                                <x:String>简体中文</x:String>
+                                <x:String>English</x:String>
+                            </x:Array>
+                        </Picker.ItemsSource>
+                    </Picker>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Player Name -->
+            <Frame Style="{StaticResource CardFrame}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Game Nickname"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource OnSurface}" />
+                    <Entry x:Name="NicknameEntry"
+                           Placeholder="Enter nickname"
+                           Style="{StaticResource SearchEntry}"
+                           TextChanged="OnNicknameChanged" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Version Isolation -->
+            <Frame Style="{StaticResource CardFrame}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Storage Folders"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource OnSurface}" />
+                    <ListView x:Name="FolderList"
+                              HeightRequest="120">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextCell Text="{Binding .}"
+                                          TextColor="{StaticResource OnSurface}" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Button Text="+ Add Folder"
+                            Style="{StaticResource OutlinedButton}"
+                            Clicked="OnAddFolder" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- About -->
+            <Frame Style="{StaticResource CardFrame}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="About"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource OnSurface}" />
+                    <Label Text="MDL - Mindustry Mobile Launcher"
+                           FontSize="14"
+                           TextColor="{StaticResource OnSurfaceVariant}" />
+                    <Label x:Name="VersionInfo"
+                           Text="v0.3.0-beta"
+                           FontSize="12"
+                           TextColor="{StaticResource Outline}" />
+                    <Button Text="Visit MDT Wiki"
+                            Style="{StaticResource OutlinedButton}"
+                            Clicked="OnOpenWiki"
+                            HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <BoxView HeightRequest="32" Color="Transparent" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

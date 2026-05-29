@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:pages="clr-namespace:MindustryLauncher.Pages"
+       x:Class="MindustryLauncher.AppShell"
+       Shell.FlyoutBehavior="Disabled"
+       Shell.BackgroundColor="{StaticResource Surface}"
+       Shell.ForegroundColor="{StaticResource OnSurface}"
+       Shell.TabBarBackgroundColor="{StaticResource SurfaceContainer}"
+       Shell.TabBarForegroundColor="{StaticResource OnSurfaceVariant}"
+       Shell.TabBarUnselectedColor="{StaticResource Outline}"
+       Shell.TabBarTitleColor="{StaticResource Primary}">
+
+    <TabBar>
+        <ShellContent Title="Launch" Icon="home.png"
+                      ContentTemplate="{DataTemplate pages:LaunchPage}" />
+
+        <ShellContent Title="Mods" Icon="extension.png"
+                      ContentTemplate="{DataTemplate pages:ModsPage}" />
+
+        <ShellContent Title="Schematics" Icon="grid_view.png"
+                      ContentTemplate="{DataTemplate pages:SchematicsPage}" />
+
+        <ShellContent Title="Settings" Icon="settings.png"
+                      ContentTemplate="{DataTemplate pages:SettingsPage}" />
+    </TabBar>
+
+</Shell>
