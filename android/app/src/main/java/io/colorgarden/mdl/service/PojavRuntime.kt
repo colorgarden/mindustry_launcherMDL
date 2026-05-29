@@ -1,7 +1,10 @@
 package io.colorgarden.mdl.service
 
 import android.app.Activity
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
+import android.util.DisplayMetrics
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.SurfaceHolder
@@ -9,6 +12,7 @@ import android.view.SurfaceView
 import android.view.WindowManager
 import com.movtery.zalithlauncher.bridge.ZLBridge
 import kotlinx.coroutines.*
+import org.lwjgl.glfw.CallbackBridge
 import java.io.File
 
 class PojavRuntime : Activity() {
@@ -24,6 +28,8 @@ class PojavRuntime : Activity() {
     private var gameJob: Job? = null
     private val debugLog = File("/sdcard/mdl_crash.log")
     private val gameScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var displayW = 1920
+    private var displayH = 1080
 
     private fun dlog(msg: String) {
         android.util.Log.e(TAG, msg)
@@ -42,11 +48,44 @@ class PojavRuntime : Activity() {
         val lwjglJar = intent.getStringExtra("lwjgl_jar") ?: run { finish(); return }
         val gameDir = intent.getStringExtra("game_dir") ?: run { finish(); return }
         dlog("gameJar=$gameJar")
+
+        // Read actual display resolution (ZL2-aligned: getRealMetrics / currentWindowMetrics)
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val rect = wm.currentWindowMetrics.bounds
+            displayW = rect.width(); displayH = rect.height()
+        } else {
+            val dm = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(dm)
+            displayW = dm.widthPixels; displayH = dm.heightPixels
+        }
+        // Force landscape: ensure width >= height (phone screens report portrait by default)
+        if (displayH > displayW) {
+            val tmp = displayW; displayW = displayH; displayH = tmp
+        }
+        // Ensure even dimensions (ZL2 getDisplayFriendlyRes)
+        if (displayW % 2 != 0) displayW--
+        if (displayH % 2 != 0) displayH--
+        dlog("Display resolution (landscape): ${displayW}x${displayH}")
+
+        // Write actual display config for sdl2_shim's SDL_CreateWindow to read
+        java.io.File("/sdcard/MDL").mkdirs()
+        java.io.File("/sdcard/MDL/display_config.txt").writeText("width=$displayW\nheight=$displayH\n")
+        dlog("Wrote display_config: ${displayW}x${displayH}")
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         surfaceView = SurfaceView(this).apply {
             holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceCreated(h: SurfaceHolder) {
                     dlog("surfaceCreated")
+                    // Set render buffer to match actual display (ZL2: holder.setFixedSize)
+                    h.setFixedSize(displayW, displayH)
+                    // Store dimensions so JVM side can read them
+                    CallbackBridge.windowWidth = displayW
+                    CallbackBridge.windowHeight = displayH
+                    CallbackBridge.physicalWidth = displayW
+                    CallbackBridge.physicalHeight = displayH
                     ZLBridge.setupBridgeWindow(h.surface)
                     nSetSurface(h.surface)
                     startGame(gameJar, lwjglJar, gameDir)
@@ -68,12 +107,15 @@ class PojavRuntime : Activity() {
     }
 
     private fun startGame(gameJar: String, lwjglJar: String, gameDir: String) {
-        // Match ZL2's approach: launch JVM from lifecycleScope.launch(Dispatchers.Default)
-        // The Launcher.launchJvm() internally sets up everything on the calling thread
         gameJob = gameScope.launch(Dispatchers.Default) {
             try {
                 dlog("MindustryJVM: launching via ZL2-aligned flow")
-                MindustryLauncher.launch(application, gameJar, lwjglJar, gameDir)
+                // JVM args carry displayW/displayH via glfwstub.windowWidth/Height system properties.
+                // GLFW static block reads them → mGLFWWindowWidth/Height = display dimensions.
+                // glfwCreateWindow IGNORES passed w/h and uses mGLFWWindowWidth/Height.
+                // sendUpdateWindowSize only works AFTER glfwPollEvents sets isInputReady=true,
+                // so we call it here (JVM just started, will poll events soon).
+                MindustryLauncher.launch(application, gameJar, lwjglJar, gameDir, displayW, displayH)
                 dlog("MindustryJVM: Game exited")
             } catch (e: Exception) {
                 dlog("MindustryJVM: CRASH - ${e.javaClass.name}: ${e.message}")

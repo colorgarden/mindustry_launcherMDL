@@ -18,7 +18,7 @@ object MindustryLauncher {
         try { java.io.File("/sdcard/mdl_crash.log").appendText("${System.currentTimeMillis()} ML: $msg\n") } catch (_: Exception) {}
     }
 
-    fun launch(app: Application, gameJar: String, lwjglJar: String, gameDir: String) {
+    fun launch(app: Application, gameJar: String, lwjglJar: String, gameDir: String, displayW: Int = 1920, displayH: Int = 1080) {
         log("launch start")
         val nativeLibDir = app.applicationInfo.nativeLibraryDir
         val jreVer = JreManager.detectVersion(app) ?: 25
@@ -114,8 +114,8 @@ object MindustryLauncher {
             "-Dorg.lwjgl.freetype.libname=$nativeLibDir/libfreetype.so",
             "-Djava.awt.headless=true",
             "-Dmindustry.data=$gameDir",
-            "-Dglfwstub.windowWidth=1920",
-            "-Dglfwstub.windowHeight=1080",
+            "-Dglfwstub.windowWidth=$displayW",
+            "-Dglfwstub.windowHeight=$displayH",
             "-Dglfwstub.initEgl=false",
             "-Dos.name=Linux",
             "-Dos.version=Android-${Build.VERSION.RELEASE}",
@@ -126,7 +126,9 @@ object MindustryLauncher {
             "-javaagent:$gameDir/preload-agent.jar",
             "-Xms256M", "-Xmx4G",
             "-cp", classpath,
-            "mindustry.desktop.DesktopLauncher"
+            "mindustry.desktop.DesktopLauncher",
+            "-width", displayW.toString(),
+            "-height", displayH.toString()
         )
 
         val exitCode = VMLauncher.launchJVM(args)
