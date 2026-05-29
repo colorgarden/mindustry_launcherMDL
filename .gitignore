@@ -11,6 +11,10 @@ android/build/
 .idea/
 *.iml
 .vscode/
+.vs/
+
+# Misc
+Mindustry_patched.jar
 
 # OS
 .DS_Store
