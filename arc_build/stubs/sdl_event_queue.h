@@ -1,25 +1,25 @@
 #pragma once
-#include "SDL.h"
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <android/log.h>
 
 #define SDL_EVENT_FILE "/sdcard/sdl_touch.dat"
 
 struct TouchEvent { unsigned char action; short x, y; };
 
-// Simple queue - buffer up to 16 events in memory, read from file when empty
 static TouchEvent gBuf[16];
 static int gBufRead = 0, gBufWrite = 0;
+static int dbg_pop_cnt = 0;
 
 static int popEvent(SDL_Event* event) {
-    // Try to refill from file if buffer is empty
     if (gBufRead == gBufWrite) {
         FILE* f = fopen(SDL_EVENT_FILE, "rb");
-        if (!f) return 0;
+        if (!f) { if (dbg_pop_cnt++ < 3) __android_log_print(ANDROID_LOG_INFO, "InputDBG", "popEvent: file not found %s", SDL_EVENT_FILE); return 0; }
         fseek(f, 0, SEEK_END);
         long size = ftell(f);
         if (size < 5) { fclose(f); return 0; }
+        if (dbg_pop_cnt++ < 3) __android_log_print(ANDROID_LOG_INFO, "InputDBG", "popEvent: file found, size=%ld bytes (%d events)", size, (int)(size/5));
         fseek(f, 0, SEEK_SET);
 
         gBufRead = 0; gBufWrite = 0;
@@ -62,11 +62,13 @@ static int popEvent(SDL_Event* event) {
     gBufRead = (gBufRead + 1) % 16;
     if (gBufRead == gBufWrite) { gBufRead = gBufWrite = 0; }
 
+    static int dbg_evt_cnt = 0;
     memset(event, 0, sizeof(*event));
     if (te->action == 0 || te->action == 5) { event->type = 0x401; event->button.button = 1; }
     else if (te->action == 1 || te->action == 6) { event->type = 0x402; event->button.button = 1; }
     else if (te->action == 2) { event->type = 0x400; }
     else return 0;
+    if (dbg_evt_cnt++ < 5) __android_log_print(ANDROID_LOG_INFO, "InputDBG", "popEvent: dispatching type=0x%x pos=%d,%d", event->type, te->x, te->y);
 
     event->button.x = te->x; event->button.y = te->y;
     event->motion.x = te->x; event->motion.y = te->y;

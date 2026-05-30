@@ -4,6 +4,7 @@
 
 
     #include "SDL.h"
+    #include "sdl_event_queue.h"
 
     JNIEXPORT jint JNICALL Java_arc_backend_sdl_jni_SDL_SDL_1Init(JNIEnv* env, jclass clazz, jint flags) {
 
@@ -552,6 +553,29 @@ static inline jboolean wrapped_Java_arc_backend_sdl_jni_SDL_SDL_1PollEvent
 //@line:342
 
         SDL_Event e;
+
+        // Try file-based touch events from Android SurfaceView first
+        if (popEvent(&e)) {
+            switch (e.type) {
+                case SDL_MOUSEMOTION:
+                    data[0] = 2;
+                    data[1] = e.motion.x;
+                    data[2] = e.motion.y;
+                    break;
+                case SDL_MOUSEBUTTONDOWN:
+                case SDL_MOUSEBUTTONUP:
+                    data[0] = 3;
+                    data[1] = (e.type == SDL_MOUSEBUTTONDOWN);
+                    data[2] = e.button.x;
+                    data[3] = e.button.y;
+                    data[4] = e.button.button;
+                    break;
+                default:
+                    break;
+            }
+            return 1;
+        }
+
         if(SDL_PollEvent(&e)){
             switch(e.type){
                 case SDL_QUIT:

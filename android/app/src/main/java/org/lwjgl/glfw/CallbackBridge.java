@@ -68,10 +68,13 @@ public class CallbackBridge {
     }
 
 
+    private static int sDbgCount = 0;
     public static void sendCursorPos(float x, float y) {
         mouseX = x;
         mouseY = y;
+        if (sDbgCount < 5) android.util.Log.e("CallbackBridge", "sendCursorPos: x=" + x + " y=" + y + " calling nativeSendCursorPos");
         nativeSendCursorPos(mouseX, mouseY);
+        if (sDbgCount < 5) { android.util.Log.e("CallbackBridge", "sendCursorPos: nativeSendCursorPos returned"); sDbgCount++; }
     }
 
     public static void sendCursorDelta(float x, float y) {
@@ -113,9 +116,11 @@ public class CallbackBridge {
         CallbackBridge.sendMouseKeycode(button, CallbackBridge.getCurrentMods(), status);
     }
 
+    private static int sDbgMbtnCount = 0;
     public static void sendMouseKeycode(int button, int modifiers, boolean isDown) {
-        // if (isGrabbing()) DEBUG_STRING.append("MouseGrabStrace: " + android.util.Log.getStackTraceString(new Throwable()) + "\n");
+        if (sDbgMbtnCount < 5) android.util.Log.e("CallbackBridge", "sendMouseKeycode: btn=" + button + " down=" + isDown + " calling nativeSendMouseButton");
         nativeSendMouseButton(button, isDown ? 1 : 0, modifiers);
+        if (sDbgMbtnCount < 5) { android.util.Log.e("CallbackBridge", "sendMouseKeycode: nativeSendMouseButton returned"); sDbgMbtnCount++; }
     }
 
     public static void sendMouseKeycode(int keycode) {
@@ -281,6 +286,7 @@ public class CallbackBridge {
     }
 
     @Keep @CriticalNative public static native void nativeSetUseInputStackQueue(boolean useInputStackQueue);
+    @Keep public static native boolean nativeSetInputReady(boolean ready);
 
     @Keep @CriticalNative private static native boolean nativeSendChar(char codepoint);
     // GLFW: GLFWCharModsCallback deprecated, but is Minecraft still use?

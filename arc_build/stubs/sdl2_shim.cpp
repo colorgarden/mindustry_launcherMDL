@@ -3,6 +3,87 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <android/log.h>
+
+// Touch event queue (reads from /sdcard/sdl_touch.dat written by PojavRuntime.kt)
+#define SDL_EVENT_FILE "/sdcard/sdl_touch.dat"
+
+struct TouchEvent { unsigned char action; short x, y; };
+
+static TouchEvent gTouchBuf[16];
+static int gTouchRead = 0, gTouchWrite = 0;
+static int dbg_pop_cnt = 0;
+
+static int popEvent(SDL_Event* event) {
+    if (gTouchRead == gTouchWrite) {
+        FILE* f = fopen(SDL_EVENT_FILE, "rb");
+        if (!f) {
+            if (dbg_pop_cnt++ < 3) __android_log_print(ANDROID_LOG_INFO, "SDLShim", "popEvent: file not found %s", SDL_EVENT_FILE);
+            return 0;
+        }
+        fseek(f, 0, SEEK_END);
+        long size = ftell(f);
+        if (size < 5) { fclose(f); return 0; }
+        if (dbg_pop_cnt++ < 3) __android_log_print(ANDROID_LOG_INFO, "SDLShim", "popEvent: file found, size=%ld bytes (%d events)", size, (int)(size/5));
+        fseek(f, 0, SEEK_SET);
+
+        gTouchRead = 0; gTouchWrite = 0;
+        int count = (int)(size / 5);
+        if (count > 16) count = 16;
+        for (int i = 0; i < count; i++) {
+            unsigned char raw[5];
+            if (fread(raw, 1, 5, f) == 5) {
+                gTouchBuf[i].action = raw[0];
+                gTouchBuf[i].x = (raw[1] << 8) | raw[2];
+                gTouchBuf[i].y = (raw[3] << 8) | raw[4];
+                gTouchWrite++;
+            }
+        }
+        fclose(f);
+
+        // Truncate processed events from file
+        long processed = count * 5;
+        long remain = size - processed;
+        if (remain > 0 && count >= 16) {
+            f = fopen(SDL_EVENT_FILE, "rb");
+            fseek(f, processed, SEEK_SET);
+            char* buf = (char*)malloc(remain);
+            fread(buf, 1, remain, f);
+            fclose(f);
+            f = fopen(SDL_EVENT_FILE, "wb");
+            fwrite(buf, 1, remain, f);
+            fclose(f);
+            free(buf);
+        } else {
+            f = fopen(SDL_EVENT_FILE, "wb"); fclose(f);
+        }
+
+        if (gTouchWrite == 0) return 0;
+    }
+
+    TouchEvent* te = &gTouchBuf[gTouchRead];
+    gTouchRead = (gTouchRead + 1) % 16;
+    if (gTouchRead == gTouchWrite) { gTouchRead = gTouchWrite = 0; }
+
+    static int dbg_evt_cnt = 0;
+    memset(event, 0, sizeof(*event));
+    if (te->action == 0 || te->action == 5) {
+        event->type = 0x401; // SDL_MOUSEBUTTONDOWN
+        event->button.button = 1; // SDL_BUTTON_LEFT
+    } else if (te->action == 1 || te->action == 6) {
+        event->type = 0x402; // SDL_MOUSEBUTTONUP
+        event->button.button = 1; // SDL_BUTTON_LEFT
+    } else if (te->action == 2) {
+        event->type = 0x400; // SDL_MOUSEMOTION
+    } else {
+        return 0;
+    }
+    if (dbg_evt_cnt++ < 5) __android_log_print(ANDROID_LOG_INFO, "SDLShim", "popEvent: dispatching type=0x%x pos=%d,%d", event->type, te->x, te->y);
+
+    event->button.x = te->x; event->button.y = te->y;
+    event->motion.x = te->x; event->motion.y = te->y;
+    return 1;
+}
 
 static SDL_Window gDummyWindow{0};
 
@@ -81,7 +162,7 @@ void SDL_StartTextInput(void) {}
 void SDL_StopTextInput(void) {}
 void SDL_SetTextInputRect(SDL_Rect *rect) { (void)rect; }
 SDL_bool SDL_IsTextInputActive(void) { return SDL_FALSE; }
-int SDL_PollEvent(SDL_Event *event) { (void)event; return 0; }
+int SDL_PollEvent(SDL_Event *event) { return popEvent(event); }
 
 int SDL_GL_SetAttribute(int attr, int value) { (void)attr; (void)value; return 0; }
 SDL_bool SDL_GL_ExtensionSupported(const char *extension) { (void)extension; return SDL_TRUE; }

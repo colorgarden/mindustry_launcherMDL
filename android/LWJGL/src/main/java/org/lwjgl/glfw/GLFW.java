@@ -538,11 +538,38 @@ public class GLFW
         // CallbackBridge.receiveCallback(CallbackBridge.EVENT_TYPE_FRAMEBUFFER_SIZE, mGLFWWindowWidth, mGLFWWindowHeight, 0, 0);
         // CallbackBridge.receiveCallback(CallbackBridge.EVENT_TYPE_WINDOW_SIZE, mGLFWWindowWidth, mGLFWWindowHeight, 0, 0);
 
+        // Load native library and initialize input buffers
+        boolean libLoaded = false;
         try {
             System.loadLibrary("pojavexec");
+            libLoaded = true;
         } catch (UnsatisfiedLinkError e) {
             e.printStackTrace();
+            try {
+                // Fallback: try loading from jna.boot.library.path
+                String nld = System.getProperty("jna.boot.library.path");
+                if (nld != null) {
+                    System.load(new java.io.File(nld, "libpojavexec.so").getAbsolutePath());
+                    libLoaded = true;
+                }
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
         }
+        if (libLoaded) {
+            try {
+                nglfwInitInputBuffers();
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+        }
+        // Write init status to tmpdir (always writable)
+        try {
+            java.io.File tmpDir = new java.io.File(System.getProperty("java.io.tmpdir"));
+            java.io.FileWriter fw = new java.io.FileWriter(new java.io.File(tmpDir, "glfw_init_status.txt"));
+            fw.write("libLoaded=" + libLoaded + " mbuf=" + (mouseDownBuffer != null) + "\n");
+            fw.close();
+        } catch (Throwable ignored) {}
         mGLFWErrorCallback = GLFWErrorCallback.createPrint();
         mGLFWKeyCodes = new ArrayMap<>();
 
@@ -598,6 +625,7 @@ public class GLFW
     private static native long nglfwSetWindowSizeCallback(long window, long ptr);
     // private static native void nglfwSetInputReady();
     private static native void nglfwSetShowingWindow(long window);
+    private static native void nglfwInitInputBuffers();
 
     /*
      private static void priGlfwSetError(int error) {
