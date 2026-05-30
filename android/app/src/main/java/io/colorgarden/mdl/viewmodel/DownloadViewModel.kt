@@ -8,6 +8,7 @@ import io.colorgarden.mdl.data.model.GitHubAsset
 import io.colorgarden.mdl.data.model.GitHubRelease
 import io.colorgarden.mdl.data.service.RemoteDownloadService
 import io.colorgarden.mdl.data.service.L
+import io.colorgarden.mdl.service.JarPatcher
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,6 +97,12 @@ class DownloadViewModel(private val c: AppContainer) : ViewModel() {
                     downloadedFile.renameTo(expectedJar)
                 }
                 val jarFile = if (expectedJar.exists()) expectedJar else downloadedFile
+
+                // Patch jar for ARM64 Android
+                if (isActive && jarFile.exists()) {
+                    _statusText.value = "Patching for ARM64..."
+                    JarPatcher.patchJar(c.context, jarFile.absolutePath)
+                }
 
                 if (isActive) {
                     _statusText.value = L.get("download.success")
