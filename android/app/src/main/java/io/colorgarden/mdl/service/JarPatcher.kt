@@ -19,13 +19,8 @@ object JarPatcher {
         "libsdl_new.so"
     )
 
-    /** Byte-level Shader patch: change GLSL version for mobile GPU
-     *  Original: #version 330 es → Patched: #version 300 es */
-    private data class BytePatch(val offset: Int, val from: Byte, val to: Byte)
-    private val SHADER_PATCHES = listOf(
-        BytePatch(2331, 0x35, 0x30),  // '5' → '0' in version string
-        BytePatch(8661, 0x99.toByte(), 0x9A.toByte())
-    )
+    /** Pattern-based Shader patch: #version 150 → #version 300 for GLES 3.0 */
+    private val SHADER_PATTERNS = listOf("#version 150" to "#version 300")
 
     /** x86/non-ARM patterns to remove from jar */
     private val REMOVE_PATTERNS = listOf(
@@ -70,17 +65,18 @@ object JarPatcher {
                             continue
                         }
 
-                        // Process Shader.class with byte-level patches
+                        // Shader.class: search/replace GLSL version strings
                         if (name == "arc/graphics/gl/Shader.class") {
                             zos.putNextEntry(ZipEntry(name))
                             val bytes = source.getInputStream(entry).use { it.readBytes() }
-                            for (p in SHADER_PATCHES) {
-                                if (p.offset < bytes.size && bytes[p.offset] == p.from) {
-                                    bytes[p.offset] = p.to
-                                    Log.d(TAG, "Shader patch @${p.offset}: ${p.from.toString(16)}→${p.to.toString(16)}")
+                            var content = String(bytes, Charsets.UTF_8)
+                            for ((from, to) in SHADER_PATTERNS) {
+                                if (content.contains(from)) {
+                                    content = content.replace(from, to)
+                                    Log.d(TAG, "Shader patch: $from → $to")
                                 }
                             }
-                            zos.write(bytes)
+                            zos.write(content.toByteArray(Charsets.UTF_8))
                         // Replace ARM64 libs with our prebuilt versions
                         } else if (ARM64_LIBS.contains(name)) {
                             val patchEntry = ZipEntry(name)
