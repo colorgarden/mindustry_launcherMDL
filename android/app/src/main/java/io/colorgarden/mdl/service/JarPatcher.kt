@@ -11,121 +11,51 @@ import java.util.zip.ZipOutputStream
 object JarPatcher {
     private const val TAG = "JarPatcher"
 
-    /** ARM64 .so files to inject into the jar */
-    private val ARM64_LIBS = listOf(
-        "libsdl-arcarm64.so",
-        "libarcarm64.so",
-        "libarc-freetypearm64.so",
-        "libsdl_new.so"
-    )
+    private val ARM64_LIBS = listOf("libsdl-arcarm64.so", "libarcarm64.so", "libarc-freetypearm64.so")
+    private val SKIP_IF_PRESENT = mapOf("libsdl-arcarm64.so" to "libSDL2.so")
+    private val REMOVE = listOf(".dylib", "libsdl-arc64.so", "libarc64.so", "libarc64.dylib", "libarc-freetype64", "libarc-filedialogs", "libsdl-arc64.dylib", "libsdl-arcarm64.dylib")
+    private val SHADER = listOf("#version 150" to "#version 300")
 
-    /** Pattern-based Shader patch: #version 150 → #version 300 for GLES 3.0 */
-    private val SHADER_PATTERNS = listOf("#version 150" to "#version 300")
-
-    /** x86/non-ARM patterns to remove from jar */
-    private val REMOVE_PATTERNS = listOf(
-        ".dylib",           // macOS libs
-        "libsdl-arc64.so",  // x86-64 SDL
-        "libarc64.so",
-        "libarc64.dylib",
-        "libarc-freetype64",
-        "libarc-filedialogs",
-        "libarcarm64.dylib",
-        "libsdl-arc64.dylib",
-        "libsdl-arcarm64.dylib"
-    )
-
-    /**
-     * Patch a downloaded Mindustry jar for ARM64 Android.
-     * @param context for accessing bundled patch assets
-     * @param jarPath path to the downloaded jar file
-     */
     fun patchJar(context: Context, jarPath: String): Boolean {
-        Log.i(TAG, "Patching jar: $jarPath")
         val jarFile = File(jarPath)
-        if (!jarFile.exists()) { Log.e(TAG, "Jar not found"); return false }
+        if (!jarFile.exists()) return false
 
-        val patchedJar = File(jarFile.parent, "Mindustry_patched.jar")
-        var success = false
+        val original = mutableSetOf<String>()
+        try { ZipFile(jarFile).use { z -> val e = z.entries(); while (e.hasMoreElements()) original.add(e.nextElement().name) } } catch (e: Exception) { return false }
 
+        val patched = File(jarFile.parent, "Mindustry_patched.jar")
         try {
-            ZipFile(jarFile).use { source ->
-                ZipOutputStream(FileOutputStream(patchedJar)).use { zos ->
-                    // Copy entries, skipping non-ARM libs
-                    val entries = source.entries()
-                    val copied = mutableSetOf<String>()
-
+            ZipFile(jarFile).use { src ->
+                ZipOutputStream(FileOutputStream(patched)).use { dst ->
+                    val entries = src.entries()
                     while (entries.hasMoreElements()) {
-                        val entry = entries.nextElement()
-                        val name = entry.name
-
-                        // Skip non-ARM native libs
-                        if (REMOVE_PATTERNS.any { name.contains(it) }) {
-                            Log.d(TAG, "Removing: $name")
-                            continue
-                        }
-
-                        // Shader.class: search/replace GLSL version strings
-                        if (name == "arc/graphics/gl/Shader.class") {
-                            zos.putNextEntry(ZipEntry(name))
-                            val bytes = source.getInputStream(entry).use { it.readBytes() }
-                            var content = String(bytes, Charsets.UTF_8)
-                            for ((from, to) in SHADER_PATTERNS) {
-                                if (content.contains(from)) {
-                                    content = content.replace(from, to)
-                                    Log.d(TAG, "Shader patch: $from → $to")
+                        val e = entries.nextElement(); val n = e.name
+                        if (REMOVE.any { n.contains(it) }) continue
+                        if (n == "arc/graphics/gl/Shader.class") {
+                            dst.putNextEntry(ZipEntry(n))
+                            val bytes = src.getInputStream(e).use { it.readBytes() }
+                            for ((from, to) in SHADER) {
+                                val fb = from.toByteArray(Charsets.UTF_8)
+                                val tb = to.toByteArray(Charsets.UTF_8)
+                                var i = 0
+                                while (i <= bytes.size - fb.size) {
+                                    if (bytes.sliceArray(i until i + fb.size).contentEquals(fb)) { tb.copyInto(bytes, i); i += tb.size } else i++
                                 }
                             }
-                            zos.write(content.toByteArray(Charsets.UTF_8))
-                        // Replace ARM64 libs with our prebuilt versions
-                        } else if (ARM64_LIBS.contains(name)) {
-                            val patchEntry = ZipEntry(name)
-                            zos.putNextEntry(patchEntry)
-                            val patchBytes = loadPatchAsset(context, name)
-                            if (patchBytes != null) {
-                                zos.write(patchBytes)
-                                Log.d(TAG, "Replaced: $name (${patchBytes.size} bytes)")
-                            } else {
-                                source.getInputStream(entry).use { it.copyTo(zos) }
-                                Log.d(TAG, "Kept original: $name (no patch)")
-                            }
-                            copied.add(name)
-                        } else {
-                            zos.putNextEntry(ZipEntry(name))
-                            source.getInputStream(entry).use { it.copyTo(zos) }
-                        }
+                            dst.write(bytes)
+                        } else { dst.putNextEntry(ZipEntry(n)); src.getInputStream(e).use { it.copyTo(dst) } }
                     }
-
-                    // Inject any ARM64 libs not already in the jar
                     for (lib in ARM64_LIBS) {
-                        if (!copied.contains(lib)) {
-                            val bytes = loadPatchAsset(context, lib) ?: continue
-                            zos.putNextEntry(ZipEntry(lib))
-                            zos.write(bytes)
-                            Log.d(TAG, "Injected: $lib (${bytes.size} bytes)")
-                        }
+                        if (original.contains(lib)) continue
+                        val alt = SKIP_IF_PRESENT[lib]
+                        if (alt != null && original.contains(alt)) continue
+                        val bytes = context.assets.open("components/patch/$lib").use { it.readBytes() }
+                        dst.putNextEntry(ZipEntry(lib)); dst.write(bytes)
                     }
                 }
             }
-
-            // Replace original with patched
-            jarFile.delete()
-            patchedJar.renameTo(jarFile)
-            success = true
-            Log.i(TAG, "Patch complete!")
-        } catch (e: Exception) {
-            Log.e(TAG, "Patch failed", e)
-            patchedJar.delete()
-        }
-
-        return success
-    }
-
-    private fun loadPatchAsset(context: Context, name: String): ByteArray? {
-        return try {
-            context.assets.open("components/patch/$name").use { it.readBytes() }
-        } catch (e: Exception) {
-            null
-        }
+            jarFile.delete(); patched.renameTo(jarFile)
+            return true
+        } catch (e: Exception) { patched.delete(); return false }
     }
 }
