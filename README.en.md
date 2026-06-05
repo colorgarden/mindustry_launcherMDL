@@ -6,7 +6,7 @@ A Mindustry launcher for Windows 7+, supporting multi-version management, mod br
 
 ## Screenshots
 
-![Main Interface](mindustry_luancher/Assets/screenshot.png)
+![Main Interface](mindustry_launcher/Assets/screenshot.png)
 
 ## System Requirements
 
@@ -65,8 +65,8 @@ A Mindustry launcher for Windows 7+, supporting multi-version management, mod br
 ## Build
 
 ```bash
-git clone https://github.com/colorgarden/mindustry_luancherMDL.git
-cd mindustry_luancherMDL
+git clone https://github.com/colorgarden/mindustry_launcherMDL.git
+cd mindustry_launcherMDL
 dotnet build
 ```
 

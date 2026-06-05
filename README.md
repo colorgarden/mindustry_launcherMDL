@@ -6,7 +6,7 @@
 
 ## 截图
 
-![主界面](mindustry_luancher/Assets/screenshot.png)
+![主界面](mindustry_launcher/Assets/screenshot.png)
 
 ## 系统要求
 
@@ -65,8 +65,8 @@
 ## 构建
 
 ```bash
-git clone https://github.com/colorgarden/mindustry_luancherMDL.git
-cd mindustry_luancherMDL
+git clone https://github.com/colorgarden/mindustry_launcherMDL.git
+cd mindustry_launcherMDL
 dotnet build
 ```
 
