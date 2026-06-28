@@ -768,34 +768,6 @@ namespace mindustry_launcher
 
         }
 
-        private void SmoothScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
-        {
-            if (sender is DependencyObject d)
-            {
-                ScrollViewer? sv = FindVisualChild<ScrollViewer>(d);
-                if (sv != null)
-                {
-                    e.Handled = true;
-                    sv.BeginAnimation(SmoothScrollHelper.ScrollOffsetProperty, null);
-                    SmoothScrollHelper.SetScrollOffset(sv, sv.VerticalOffset);
-                    double t = Math.Max(0, Math.Min(sv.ScrollableHeight, sv.VerticalOffset - (e.Delta * 1.2)));
-                    sv.BeginAnimation(SmoothScrollHelper.ScrollOffsetProperty, new DoubleAnimation(t, TimeSpan.FromMilliseconds(350)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
-                }
-            }
-        }
-
-        private T? FindVisualChild<T>(DependencyObject obj) where T : DependencyObject
-        {
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
-            {
-                DependencyObject c = VisualTreeHelper.GetChild(obj, i);
-                if (c is T t) return t;
-                T? res = FindVisualChild<T>(c);
-                if (res != null) return res;
-            }
-            return null;
-        }
-
         private void AnimateFade(FrameworkElement ele, bool isShow)
         {
             if (isShow)
@@ -1762,7 +1734,7 @@ namespace mindustry_launcher
             return Path.Combine(d, "settings.bin");
         }
 
-        private void ScanSaveDataStatus()
+        private async void ScanSaveDataStatus()
         {
             string binPath = GetSettingsBinPath();
             if (string.IsNullOrEmpty(binPath)) return;
@@ -1772,21 +1744,26 @@ namespace mindustry_launcher
                 SaveDataStatusText.Foreground = Brushes.Gray;
                 return;
             }
+            SaveDataStatusText.Text = "...";
+            SaveDataStatusText.Foreground = Brushes.Gray;
             var editor = new MindustrySettingsEditor();
-            bool isHealthy = editor.LoadList(binPath, out var lst);
+            bool isHealthy = false;
+            int count = 0;
+            string errMsg = "";
+            await Task.Run(() => { isHealthy = editor.LoadList(binPath, out var lst); count = lst.Count; errMsg = editor.ErrorMessage; });
             if (isHealthy)
             {
-                SaveDataStatusText.Text = L.T("saves.parse_perfect", lst.Count);
+                SaveDataStatusText.Text = L.T("saves.parse_perfect", count);
                 SaveDataStatusText.Foreground = Brushes.Green;
             }
             else
             {
-                SaveDataStatusText.Text = L.T("saves.partial_damage", editor.ErrorMessage);
+                SaveDataStatusText.Text = L.T("saves.partial_damage", errMsg);
                 SaveDataStatusText.Foreground = Brushes.Crimson;
             }
         }
 
-        private void ParseSaveData_Click(object sender, RoutedEventArgs e)
+        private async void ParseSaveData_Click(object sender, RoutedEventArgs e)
         {
             string binPath = GetSettingsBinPath();
             if (!File.Exists(binPath))
@@ -1795,8 +1772,10 @@ namespace mindustry_launcher
                 return;
             }
             var editor = new MindustrySettingsEditor();
-            bool isHealthy = editor.LoadList(binPath, out var lst);
-            if (lst.Count == 0 && !isHealthy)
+            List<SettingItem>? lst = null;
+            bool isHealthy = false;
+            await Task.Run(() => { isHealthy = editor.LoadList(binPath, out var items); lst = items; });
+            if (lst!.Count == 0 && !isHealthy)
             {
                 ShowDialog(L.Get("dialog.error"), L.T("saves.parse_critical", editor.ErrorMessage), DialogIcon.Error);
                 return;
@@ -2573,7 +2552,7 @@ namespace mindustry_launcher
                 scanBtn.Content = L.Get("settings.scanning");
                 scanBtn.IsEnabled = false;
                 string currentPath = comboBox.Text;
-                var javas = await Task.Run(() => JavaScanner.Scan(currentPath, true));
+                var javas = await Task.Run(() => JavaScanner.Scan(currentPath, false));
                 comboBox.ItemsSource = javas;
                 if (javas.Count > 0)
                     comboBox.Text = javas[0].Path;
